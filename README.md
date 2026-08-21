@@ -6,8 +6,6 @@
   </picture>
 </p>
 
-<h1 align="center">Topos</h1>
-
 <p align="center">
   <em>No guesswork. No unmeasured claims. It measures, proves, and verifies.</em>
 </p>
