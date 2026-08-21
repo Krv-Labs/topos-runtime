@@ -6,6 +6,7 @@
 pub mod assess;
 pub mod benchmark;
 pub mod compare;
+pub mod compiled;
 pub mod coverage;
 pub mod depgraph;
 pub mod docs;

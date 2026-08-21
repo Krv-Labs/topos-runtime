@@ -29,7 +29,10 @@ situational.
 | `topos_generate_depgraph` | Force a GitNexus rebuild/refresh. |
 | `topos_refactor` | Advisory hotspots. Never affects the medal. |
 | `topos_calculate_coverage` | Structural test coverage. Outside the lattice. |
-| `topos_get_doc` | Fetch one of the six embedded topics. |
+| `topos_get_doc` | Fetch one of the seven embedded topics. |
+| `topos_compiled_plan` | Probe clang and emit a compiled-optimization plan. Builds nothing. |
+| `topos_compiled_apply` | Measure an approved plan; promote only if SPEED and SIZE both pass. |
+| `topos_compiled_rollback` | Restore the pre-apply baseline binary. |
 
 ## Which server am I talking to?
 
@@ -253,9 +256,9 @@ symbols. Outside the lattice. Engineering reference:
 
 ## Repo OpenWiki (filesystem, not `topos_get_doc`)
 
-`topos_get_doc` / `topos://docs/*` only serve the six embedded topics
+`topos_get_doc` / `topos://docs/*` only serve the seven embedded topics
 (`agent-contract`, `lattice`, `metrics`, `preferences`, `priority`,
-`workflows`). Broader engineering docs live under `openwiki/` in the
+`workflows`, `compiled-agent-loop`). Broader engineering docs live under `openwiki/` in the
 repository (quickstart, architecture, domain, operations, integrations).
 Agents with workspace access should read those files directly; they are
 **not** MCP resources.
