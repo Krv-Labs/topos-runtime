@@ -1,9 +1,16 @@
-//! Optimization loop module for Stream 2.
+//! Optimization loop for compiled binaries.
 //!
-//! Provides optimization plans, candidate opportunity identification,
-//! human-gated recompiler pipeline, and versioned artifact storage.
+//! Driver flags and instrumented PGO only. `opt` pass names are not part of
+//! this surface — feeding them to clang as argv is how the fabricated loop
+//! produced unbuildable plans.
 
+pub mod approval;
 pub mod artifact_store;
-pub mod candidate;
+pub mod harness;
+pub mod measurement;
+pub mod ops;
 pub mod plan;
-pub mod recompiler;
+pub mod report;
+pub mod statistics;
+pub mod target;
+pub mod variant;

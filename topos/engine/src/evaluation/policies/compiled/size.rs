@@ -1,64 +1,38 @@
-//! Policy translator for SIZE generator in compiled code evaluation.
+//! SIZE: deterministic binary-size delta vs the baseline arm.
+//!
+//! SIZE-satisfied means "did not regress beyond budget"
+//! (`size_increase_pct ≤ max`). SPEED-satisfied means "improved by ≥
+//! threshold". This mirrors the spec's own `speedup ≥ 5% / size increase ≤ 10%`.
+//! `p_value` is always `None`.
 
-use crate::evaluation::policies::base::ScoredDecision;
-use std::collections::HashMap;
+use crate::evaluation::policies::compiled::outcome::GeneratorOutcome;
 
-pub const DEFAULT_MAX_CODE_BYTES: f64 = 65536.0;
-pub const DEFAULT_MAX_INSTRUCTIONS: f64 = 10000.0;
-
-pub fn score_size(code_size_bytes: Option<f64>, instruction_count: Option<f64>) -> ScoredDecision {
-    let mut interpretation = HashMap::new();
-    let mut achieved = true;
-    let mut qualities = Vec::new();
-
-    if let Some(bytes) = code_size_bytes {
-        let max_bytes = DEFAULT_MAX_CODE_BYTES;
-        let pass = bytes <= max_bytes;
-        if !pass {
-            achieved = false;
-        }
-        let quality = (1.0 - bytes / max_bytes).clamp(0.0, 1.0);
-        qualities.push(quality);
-        interpretation.insert(
-            "bitcode.code_size_bytes".to_string(),
-            format!(
-                "Code size: {:.0} bytes (max {:.0}, {})",
-                bytes,
-                max_bytes,
-                if pass { "PASS" } else { "FAIL" }
-            ),
-        );
+pub fn score_size(
+    baseline_bytes: u64,
+    variant_bytes: u64,
+    max_increase_pct: f64,
+) -> GeneratorOutcome {
+    if baseline_bytes == 0 {
+        return GeneratorOutcome::Unmeasured {
+            reason: "baseline binary size is zero; SIZE delta is undefined",
+        };
     }
-
-    if let Some(insts) = instruction_count {
-        let max_insts = DEFAULT_MAX_INSTRUCTIONS;
-        let pass = insts <= max_insts;
-        if !pass {
-            achieved = false;
+    let delta_pct = (variant_bytes as f64 - baseline_bytes as f64) / baseline_bytes as f64 * 100.0;
+    let detail = format!(
+        "size {variant_bytes} B vs baseline {baseline_bytes} B ({delta_pct:+.2}%, budget {max_increase_pct:.1}%)"
+    );
+    if delta_pct <= max_increase_pct {
+        GeneratorOutcome::Satisfied {
+            delta_pct,
+            p_value: None,
+            detail,
         }
-        let quality = (1.0 - insts / max_insts).clamp(0.0, 1.0);
-        qualities.push(quality);
-        interpretation.insert(
-            "bitcode.instruction_count".to_string(),
-            format!(
-                "Instruction count: {:.0} (max {:.0}, {})",
-                insts,
-                max_insts,
-                if pass { "PASS" } else { "FAIL" }
-            ),
-        );
-    }
-
-    let score = if qualities.is_empty() {
-        1.0
     } else {
-        qualities.into_iter().fold(f64::INFINITY, f64::min)
-    };
-
-    ScoredDecision {
-        score,
-        achieved,
-        interpretation,
+        GeneratorOutcome::Violated {
+            delta_pct,
+            p_value: None,
+            detail,
+        }
     }
 }
 
@@ -67,16 +41,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_score_size_pass() {
-        let decision = score_size(Some(1024.0), Some(500.0));
-        assert!(decision.achieved);
-        assert!(decision.score > 0.8);
+    fn a_ten_percent_growth_is_satisfied_at_the_default_budget() {
+        let outcome = score_size(1000, 1100, 10.0);
+        assert!(outcome.is_satisfied());
     }
 
     #[test]
-    fn test_score_size_fail() {
-        let decision = score_size(Some(100000.0), Some(500.0));
-        assert!(!decision.achieved);
-        assert_eq!(decision.score, 0.0);
+    fn growth_past_the_budget_is_violated() {
+        let outcome = score_size(1000, 1200, 10.0);
+        assert!(matches!(outcome, GeneratorOutcome::Violated { .. }));
     }
 }

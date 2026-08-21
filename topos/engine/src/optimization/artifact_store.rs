@@ -1,250 +1,382 @@
-//! Versioned artifact storage for bitcode, profiles, LLVM assembly (.ll), binaries, and rollback.
+//! Versioned compiled artifacts under `<project>/.topos/compiled/`.
+//!
+//! Store paths and the rollback destination are resolved with
+//! [`crate::paths::resolve_path_within`]. Rollback writes a sibling temp
+//! file, `sync_all`s, restores mode, `rename`s over the destination, then
+//! **reads the destination back** before `verified: true`.
 
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs;
+use std::fmt;
+use std::fs::{self, File};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-/// Versioned record of optimization build artifacts.
+use serde::{Deserialize, Serialize};
+
+use crate::paths::resolve_path_within;
+
+const STORE_DIR: &str = ".topos/compiled";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ArtifactVersion {
-    pub version_id: String,
-    pub created_at: String,
-    pub bitcode_path: Option<PathBuf>,
-    pub ll_path: Option<PathBuf>,
-    pub profile_path: Option<PathBuf>,
-    pub binary_path: Option<PathBuf>,
-    pub metadata: HashMap<String, String>,
+pub struct BaselineManifest {
+    pub bytes: u64,
+    pub mode: u32,
+    #[serde(default)]
+    pub dest: Option<String>,
 }
 
-/// Disk-backed versioned store for compiler artifacts and binaries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RollbackResult {
+    pub bytes_restored: u64,
+    pub verified: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct ArtifactStore {
-    root_dir: PathBuf,
+    project_root: PathBuf,
+    store_root: PathBuf,
 }
 
 impl ArtifactStore {
-    pub fn new(root_dir: impl AsRef<Path>) -> std::io::Result<Self> {
-        let root_dir = root_dir.as_ref().to_path_buf();
-        fs::create_dir_all(&root_dir)?;
-        Ok(Self { root_dir })
+    pub fn open(project_root: impl AsRef<Path>) -> Result<Self, StoreError> {
+        let project_root = project_root.as_ref();
+        fs::create_dir_all(project_root)?;
+        let project_root = fs::canonicalize(project_root)?;
+        let store_root = project_root.join(STORE_DIR);
+        fs::create_dir_all(&store_root)?;
+        let store_root = fs::canonicalize(&store_root)?;
+        Ok(Self {
+            project_root,
+            store_root,
+        })
     }
 
-    pub fn root_dir(&self) -> &Path {
-        &self.root_dir
+    pub fn store_root(&self) -> &Path {
+        &self.store_root
     }
 
-    /// Save a new version of compiler artifacts into a version directory.
-    pub fn store_version(
+    pub fn project_root(&self) -> &Path {
+        &self.project_root
+    }
+
+    pub fn run_dir(&self, run_id: &str) -> Result<PathBuf, StoreError> {
+        self.contained_store_path(&format!("runs/{run_id}"))
+    }
+
+    pub fn create_run(&self, run_id: &str) -> Result<PathBuf, StoreError> {
+        let dir = self.run_dir(run_id)?;
+        fs::create_dir_all(dir.join("baseline"))?;
+        fs::create_dir_all(dir.join("candidates"))?;
+        Ok(dir)
+    }
+
+    pub fn candidate_dir(&self, run_id: &str, slot: usize) -> Result<PathBuf, StoreError> {
+        self.contained_store_path(&format!("runs/{run_id}/candidates/c{slot:02}"))
+    }
+
+    pub fn save_baseline(
         &self,
-        version_id: &str,
-        bitcode: Option<&[u8]>,
-        ll: Option<&str>,
-        profile: Option<&[u8]>,
-        binary: Option<&[u8]>,
-        metadata: HashMap<String, String>,
-    ) -> std::io::Result<ArtifactVersion> {
-        let version_dir = self.root_dir.join(version_id);
-        fs::create_dir_all(&version_dir)?;
-
-        let mut bitcode_path = None;
-        let mut ll_path = None;
-        let mut profile_path = None;
-        let mut binary_path = None;
-
-        if let Some(bc_bytes) = bitcode {
-            let p = version_dir.join("module.bc");
-            fs::write(&p, bc_bytes)?;
-            bitcode_path = Some(p);
-        }
-
-        if let Some(ll_text) = ll {
-            let p = version_dir.join("assembly.ll");
-            fs::write(&p, ll_text)?;
-            ll_path = Some(p);
-        }
-
-        if let Some(prof_bytes) = profile {
-            let p = version_dir.join("default.profdata");
-            fs::write(&p, prof_bytes)?;
-            profile_path = Some(p);
-        }
-
-        if let Some(bin_bytes) = binary {
-            let p = version_dir.join("binary");
-            fs::write(&p, bin_bytes)?;
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let _ = fs::set_permissions(&p, fs::Permissions::from_mode(0o755));
-            }
-            binary_path = Some(p);
-        }
-
-        let timestamp = "2026-08-20T19:00:00Z".to_string();
-        let artifact_ver = ArtifactVersion {
-            version_id: version_id.to_string(),
-            created_at: timestamp,
-            bitcode_path,
-            ll_path,
-            profile_path,
-            binary_path,
-            metadata,
+        run_id: &str,
+        bytes: &[u8],
+        mode: u32,
+    ) -> Result<PathBuf, StoreError> {
+        let dir = self.run_dir(run_id)?.join("baseline");
+        let dir = self.contain(&dir)?;
+        fs::create_dir_all(&dir)?;
+        let binary = dir.join("binary");
+        fs::write(&binary, bytes)?;
+        set_mode(&binary, mode)?;
+        let manifest = BaselineManifest {
+            bytes: bytes.len() as u64,
+            mode,
+            dest: None,
         };
-
-        let manifest_path = version_dir.join("manifest.json");
-        let manifest_json = serde_json::to_string_pretty(&artifact_ver)?;
-        fs::write(manifest_path, manifest_json)?;
-
-        Ok(artifact_ver)
+        fs::write(
+            dir.join("manifest.json"),
+            serde_json::to_vec_pretty(&manifest).map_err(|e| StoreError::Json(e.to_string()))?,
+        )?;
+        Ok(binary)
     }
 
-    /// Retrieve metadata for a stored artifact version.
-    pub fn get_version(&self, version_id: &str) -> std::io::Result<Option<ArtifactVersion>> {
-        let manifest_path = self.root_dir.join(version_id).join("manifest.json");
-        if !manifest_path.exists() {
+    pub fn load_manifest(&self, run_id: &str) -> Result<BaselineManifest, StoreError> {
+        let path = self.contain(&self.run_dir(run_id)?.join("baseline/manifest.json"))?;
+        serde_json::from_slice(&fs::read(path)?).map_err(|e| StoreError::Json(e.to_string()))
+    }
+
+    /// Record (and optionally replace) the rollback snapshot for this run.
+    pub fn set_rollback_snapshot(
+        &self,
+        run_id: &str,
+        dest: &Path,
+        bytes: Option<&[u8]>,
+        mode: Option<u32>,
+    ) -> Result<(), StoreError> {
+        let dest = resolve_path_within(&dest.to_string_lossy(), &self.project_root)
+            .map_err(StoreError::Path)?;
+        if let Some(bytes) = bytes {
+            self.save_baseline(run_id, bytes, mode.unwrap_or(0o755))?;
+        }
+        let mut manifest = self.load_manifest(run_id)?;
+        if let Some(mode) = mode {
+            manifest.mode = mode;
+        }
+        if let Some(bytes) = bytes {
+            manifest.bytes = bytes.len() as u64;
+        }
+        manifest.dest = Some(dest.display().to_string());
+        let path = self.contain(&self.run_dir(run_id)?.join("baseline/manifest.json"))?;
+        fs::write(
+            path,
+            serde_json::to_vec_pretty(&manifest).map_err(|e| StoreError::Json(e.to_string()))?,
+        )?;
+        Ok(())
+    }
+
+    pub fn rollback_recorded(&self, run_id: Option<&str>) -> Result<RollbackResult, StoreError> {
+        let run_id = match run_id {
+            Some(id) => {
+                reject_unsafe_id(id)?;
+                id.to_string()
+            }
+            None => self.current_run_id()?.ok_or(StoreError::NoCurrentRun)?,
+        };
+        let manifest = self.load_manifest(&run_id)?;
+        let dest = manifest.dest.ok_or(StoreError::NoDest)?;
+        self.rollback(Some(&run_id), Path::new(&dest))
+    }
+
+    pub fn set_current(&self, run_id: &str) -> Result<(), StoreError> {
+        reject_unsafe_id(run_id)?;
+        let pointer = self.contain(&self.store_root.join("current"))?;
+        fs::write(pointer, run_id.as_bytes())?;
+        Ok(())
+    }
+
+    pub fn current_run_id(&self) -> Result<Option<String>, StoreError> {
+        let pointer = self.store_root.join("current");
+        if !pointer.exists() {
             return Ok(None);
         }
-
-        let content = fs::read_to_string(manifest_path)?;
-        let artifact_ver: ArtifactVersion = serde_json::from_str(&content)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        Ok(Some(artifact_ver))
+        let text = fs::read_to_string(pointer)?;
+        let id = text.trim();
+        if id.is_empty() {
+            return Ok(None);
+        }
+        reject_unsafe_id(id)?;
+        Ok(Some(id.to_string()))
     }
 
-    /// List all artifact versions present in the store directory.
-    pub fn list_versions(&self) -> std::io::Result<Vec<ArtifactVersion>> {
-        let mut versions = Vec::new();
-
-        if !self.root_dir.exists() {
-            return Ok(versions);
-        }
-
-        for entry in fs::read_dir(&self.root_dir)? {
-            let entry = entry?;
-            if entry.file_type()?.is_dir() {
-                if let Some(version_id) = entry.file_name().to_str() {
-                    if let Some(ver) = self.get_version(version_id)? {
-                        versions.push(ver);
-                    }
-                }
-            }
-        }
-
-        versions.sort_by(|a, b| a.version_id.cmp(&b.version_id));
-        Ok(versions)
-    }
-
-    /// Roll back active binary to the specified stored target version.
+    /// Restore the stored baseline over `dest`. `dest` must stay inside the
+    /// project root. Length mismatch with the manifest is `Corrupt`.
     pub fn rollback(
         &self,
-        target_version_id: &str,
-        active_binary_dest: &Path,
-    ) -> std::io::Result<ArtifactVersion> {
-        let ver = self.get_version(target_version_id)?.ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Target version '{target_version_id}' not found in artifact store"),
-            )
-        })?;
-
-        let bin_path = ver.binary_path.as_ref().ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Target version '{target_version_id}' does not carry a binary artifact"),
-            )
-        })?;
-
-        if let Some(parent) = active_binary_dest.parent() {
+        run_id: Option<&str>,
+        dest: &Path,
+    ) -> Result<RollbackResult, StoreError> {
+        let run_id = match run_id {
+            Some(id) => {
+                reject_unsafe_id(id)?;
+                id.to_string()
+            }
+            None => self.current_run_id()?.ok_or(StoreError::NoCurrentRun)?,
+        };
+        let dest = resolve_path_within(&dest.to_string_lossy(), &self.project_root)
+            .map_err(StoreError::Path)?;
+        let baseline_dir = self.contain(&self.run_dir(&run_id)?.join("baseline"))?;
+        let binary_path = self.contain(&baseline_dir.join("binary"))?;
+        let manifest_path = self.contain(&baseline_dir.join("manifest.json"))?;
+        let manifest: BaselineManifest = serde_json::from_slice(&fs::read(&manifest_path)?)
+            .map_err(|e| StoreError::Json(e.to_string()))?;
+        let stored = fs::read(&binary_path)?;
+        if stored.len() as u64 != manifest.bytes {
+            return Err(StoreError::Corrupt {
+                expected: manifest.bytes,
+                actual: stored.len() as u64,
+            });
+        }
+        if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent)?;
         }
-
-        fs::copy(bin_path, active_binary_dest)?;
-
-        #[cfg(unix)]
+        let tmp = dest.with_file_name(format!(
+            "{}.topos-rollback-{}",
+            dest.file_name().unwrap_or_default().to_string_lossy(),
+            std::process::id()
+        ));
         {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = fs::set_permissions(active_binary_dest, fs::Permissions::from_mode(0o755));
+            let mut file = File::create(&tmp)?;
+            file.write_all(&stored)?;
+            file.sync_all()?;
         }
+        set_mode(&tmp, manifest.mode)?;
+        fs::rename(&tmp, &dest)?;
+        let read_back = fs::read(&dest)?;
+        let verified = read_back == stored;
+        Ok(RollbackResult {
+            bytes_restored: if verified { stored.len() as u64 } else { 0 },
+            verified,
+        })
+    }
 
-        Ok(ver)
+    fn contained_store_path(&self, rel: &str) -> Result<PathBuf, StoreError> {
+        reject_unsafe_rel(rel)?;
+        self.contain(&self.store_root.join(rel))
+    }
+
+    fn contain(&self, path: &Path) -> Result<PathBuf, StoreError> {
+        resolve_path_within(&path.to_string_lossy(), &self.store_root).map_err(StoreError::Path)
+    }
+}
+
+fn reject_unsafe_id(id: &str) -> Result<(), StoreError> {
+    if id.is_empty()
+        || id.contains("..")
+        || id.contains('/')
+        || id.contains('\\')
+        || id.contains('\0')
+    {
+        return Err(StoreError::Path(format!(
+            "Access denied: run id must be a single path segment, got {id}"
+        )));
+    }
+    Ok(())
+}
+
+fn reject_unsafe_rel(rel: &str) -> Result<(), StoreError> {
+    if rel.contains('\0') {
+        return Err(StoreError::Path("Access denied: NUL in path".into()));
+    }
+    Ok(())
+}
+
+fn set_mode(path: &Path, mode: u32) -> io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(mode))?;
+    }
+    let _ = (path, mode);
+    Ok(())
+}
+
+#[derive(Debug)]
+pub enum StoreError {
+    Path(String),
+    Corrupt { expected: u64, actual: u64 },
+    NoCurrentRun,
+    NoDest,
+    Json(String),
+    Io(io::Error),
+}
+
+impl fmt::Display for StoreError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            StoreError::Path(msg) => write!(f, "{msg}"),
+            StoreError::Corrupt { expected, actual } => write!(
+                f,
+                "baseline corrupt: manifest length {expected}, file length {actual}"
+            ),
+            StoreError::NoCurrentRun => write!(f, "no current compiled run to roll back"),
+            StoreError::NoDest => write!(f, "no rollback destination recorded for this run"),
+            StoreError::Json(err) => write!(f, "artifact JSON: {err}"),
+            StoreError::Io(err) => write!(f, "artifact I/O: {err}"),
+        }
+    }
+}
+
+impl std::error::Error for StoreError {}
+
+impl From<io::Error> for StoreError {
+    fn from(err: io::Error) -> Self {
+        StoreError::Io(err)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-    #[test]
-    fn test_store_and_retrieve_version() {
-        let temp_dir = std::env::temp_dir().join("topos_store_test");
-        let store = ArtifactStore::new(&temp_dir).unwrap();
-
-        let mut meta = HashMap::new();
-        meta.insert("plan_id".into(), "p1".into());
-
-        let ver = store
-            .store_version(
-                "v1.0.0",
-                Some(b"bc content"),
-                Some("; LLVM IR"),
-                Some(b"pgo prof"),
-                Some(b"binary exe"),
-                meta,
-            )
-            .unwrap();
-
-        assert_eq!(ver.version_id, "v1.0.0");
-        assert!(ver.binary_path.as_ref().unwrap().exists());
-
-        let retrieved = store.get_version("v1.0.0").unwrap().unwrap();
-        assert_eq!(retrieved.version_id, "v1.0.0");
-        assert_eq!(retrieved.metadata.get("plan_id"), Some(&"p1".to_string()));
-
-        let versions = store.list_versions().unwrap();
-        assert_eq!(versions.len(), 1);
-
-        let _ = fs::remove_dir_all(&temp_dir);
+    fn temp_project(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!(
+            "topos_artifacts_{label}_{}_{nanos}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
     }
 
     #[test]
-    fn test_rollback_binary() {
-        let temp_dir = std::env::temp_dir().join("topos_store_rollback_test");
-        let store = ArtifactStore::new(temp_dir.join("store")).unwrap();
+    fn rollback_restores_the_exact_baseline_bytes() {
+        let root = temp_project("rollback");
+        let store = ArtifactStore::open(&root).unwrap();
+        store.create_run("run1").unwrap();
+        store.save_baseline("run1", b"BASELINE-v1", 0o755).unwrap();
+        store.set_current("run1").unwrap();
 
-        store
-            .store_version(
-                "v1",
-                None,
-                None,
-                None,
-                Some(b"version 1 binary"),
-                HashMap::new(),
-            )
-            .unwrap();
+        let dest = root.join("app.bin");
+        fs::write(&dest, b"CANDIDATE-v2-longer").unwrap();
 
-        store
-            .store_version(
-                "v2",
-                None,
-                None,
-                None,
-                Some(b"version 2 binary"),
-                HashMap::new(),
-            )
-            .unwrap();
+        let result = store.rollback(None, &dest).unwrap();
+        assert!(result.verified);
+        assert_eq!(result.bytes_restored, 11);
+        assert_eq!(fs::read(&dest).unwrap(), b"BASELINE-v1");
+        let _ = fs::remove_dir_all(&root);
+    }
 
-        let active_dest = temp_dir.join("active_app");
-        fs::write(&active_dest, b"version 2 binary").unwrap();
+    #[test]
+    fn artifact_paths_escaping_the_store_are_rejected() {
+        let root = temp_project("escape");
+        let store = ArtifactStore::open(&root).unwrap();
+        let err = store.run_dir("../../etc/passwd").unwrap_err();
+        assert!(
+            matches!(err, StoreError::Path(ref msg) if msg.contains("Access denied") || msg.contains("single path segment")),
+            "{err}"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
 
-        // Perform rollback to v1
-        let rolled_back = store.rollback("v1", &active_dest).unwrap();
-        assert_eq!(rolled_back.version_id, "v1");
+    #[cfg(unix)]
+    #[test]
+    fn a_symlink_escaping_the_store_is_rejected() {
+        let root = temp_project("symlink");
+        let store = ArtifactStore::open(&root).unwrap();
+        store.create_run("run1").unwrap();
+        let link = store.store_root().join("runs/run1/baseline/binary");
+        if link.exists() {
+            fs::remove_file(&link).ok();
+        }
+        std::os::unix::fs::symlink("/etc/passwd", &link).unwrap();
+        let err = store
+            .contain(&store.store_root().join("runs/run1/baseline/binary"))
+            .unwrap_err();
+        assert!(
+            matches!(err, StoreError::Path(ref msg) if msg.contains("Access denied")),
+            "{err}"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
 
-        let active_content = fs::read_to_string(&active_dest).unwrap();
-        assert_eq!(active_content, "version 1 binary");
-
-        let _ = fs::remove_dir_all(&temp_dir);
+    #[test]
+    fn length_mismatch_is_corrupt_and_refuses_to_write() {
+        let root = temp_project("corrupt");
+        let store = ArtifactStore::open(&root).unwrap();
+        store.create_run("run1").unwrap();
+        store.save_baseline("run1", b"BASELINE-v1", 0o755).unwrap();
+        let dest = root.join("app.bin");
+        fs::write(&dest, b"keep-me").unwrap();
+        fs::write(
+            store.run_dir("run1").unwrap().join("baseline/binary"),
+            b"short",
+        )
+        .unwrap();
+        let err = store.rollback(Some("run1"), &dest).unwrap_err();
+        assert!(matches!(err, StoreError::Corrupt { .. }));
+        assert_eq!(fs::read(&dest).unwrap(), b"keep-me");
+        let _ = fs::remove_dir_all(&root);
     }
 }

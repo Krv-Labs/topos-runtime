@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use crate::adapters::llvm::{LlvmError, LlvmToolchain};
-use crate::adapters::perf::ProfileCollector;
+use crate::adapters::llvm::{LlvmError, Toolchain};
 use crate::adapters::{run_with_timeout, RunError};
 use crate::graphs::base::Representation;
 use crate::graphs::bitcode::parse_ll_assembly;
+use crate::optimization::statistics;
 
 use super::baseline::compiled_medal_from_metrics;
 use super::manifest::{BenchmarkDefaults, BenchmarkManifest, WorkloadSpec};
@@ -44,7 +44,7 @@ impl From<std::io::Error> for BenchmarkError {
 }
 
 pub struct BenchmarkRunner {
-    toolchain: LlvmToolchain,
+    toolchain: Toolchain,
     work_dir: PathBuf,
 }
 
@@ -53,13 +53,13 @@ impl BenchmarkRunner {
         let work_dir = work_dir.as_ref().to_path_buf();
         fs::create_dir_all(&work_dir)?;
         Ok(Self {
-            toolchain: LlvmToolchain::new(),
+            toolchain: Toolchain::discover(),
             work_dir,
         })
     }
 
     pub fn toolchain_usable() -> bool {
-        LlvmToolchain::detect().is_usable()
+        Toolchain::discover().has_clang()
     }
 
     pub fn run_manifest(
@@ -100,19 +100,28 @@ impl BenchmarkRunner {
 
         let artifact_dir = self.work_dir.join(&workload.id);
         fs::create_dir_all(&artifact_dir)?;
-        let bc_path = artifact_dir.join("module.bc");
         let ll_path = artifact_dir.join("module.ll");
         let bin_path = artifact_dir.join("workload");
-        let flags = manifest.compile_flags_for(workload);
+        let flags: Vec<String> = manifest
+            .compile_flags_for(workload)
+            .into_iter()
+            .map(str::to_string)
+            .collect();
 
+        let mut argv = vec!["clang".to_string()];
+        argv.extend(flags.iter().cloned());
+        argv.push("-o".into());
+        argv.push(bin_path.display().to_string());
+        argv.push(source.display().to_string());
         self.toolchain
-            .compile_to_bitcode(&source, &bc_path, &flags)
+            .run_build(
+                &argv,
+                None,
+                Some(Duration::from_secs(defaults.timeout_secs)),
+            )
             .map_err(BenchmarkError::Compile)?;
         self.toolchain
-            .disassemble_bitcode(&bc_path, &ll_path)
-            .map_err(BenchmarkError::Compile)?;
-        self.toolchain
-            .compile_bitcode_to_binary(&bc_path, &bin_path, &[])
+            .emit_ll(&source, &ll_path, &flags)
             .map_err(BenchmarkError::Compile)?;
 
         let ll_text = fs::read_to_string(&ll_path).map_err(BenchmarkError::Io)?;
@@ -122,7 +131,6 @@ impl BenchmarkRunner {
 
         let (median_ms, min_ms, max_ms, exit_code) =
             self.timed_runs(&bin_path, &workload.args, defaults)?;
-        let profile = ProfileCollector::collect_for_command(&bin_path, &workload.args, None);
 
         Ok(WorkloadMeasurement {
             workload_id: workload.id.clone(),
@@ -131,13 +139,12 @@ impl BenchmarkRunner {
             min_wall_ms: min_ms,
             max_wall_ms: max_ms,
             binary_size_bytes: fs::metadata(&bin_path).map_err(BenchmarkError::Io)?.len(),
-            bitcode_size_bytes: fs::metadata(&bc_path).map_err(BenchmarkError::Io)?.len(),
+            bitcode_size_bytes: fs::metadata(&ll_path).map_err(BenchmarkError::Io)?.len(),
             instruction_count: bitcode_obj.total_instructions as u64,
             compiled_medal,
             bitcode_metrics,
             exit_code,
             measure_runs: defaults.measure_runs,
-            profile: Some(profile),
         })
     }
 
@@ -177,7 +184,7 @@ impl BenchmarkRunner {
         }
         samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         Ok((
-            samples[samples.len() / 2],
+            statistics::median(&samples),
             samples[0],
             samples[samples.len() - 1],
             last_status,

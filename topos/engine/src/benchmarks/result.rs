@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 
-use crate::adapters::perf::SystemPerformanceProfile;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -19,8 +18,6 @@ pub struct WorkloadMeasurement {
     pub bitcode_metrics: HashMap<String, f64>,
     pub exit_code: Option<i32>,
     pub measure_runs: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub profile: Option<SystemPerformanceProfile>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

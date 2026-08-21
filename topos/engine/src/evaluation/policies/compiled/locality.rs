@@ -1,67 +1,57 @@
-//! Policy translator for LOCALITY generator in compiled code evaluation.
+//! LOCALITY, rendered as **MEMORY FOOTPRINT**: peak RSS + page faults vs the
+//! baseline arm of the same interleaved run.
+//!
+//! `Satisfied` iff `rss_increase_pct ≤ max` and the page-fault delta is not
+//! significantly worse. Keep [`CompiledGenerator::Locality`] so
+//! `compiled_omega.rs` is untouched.
 
-use crate::evaluation::policies::base::ScoredDecision;
-use std::collections::HashMap;
+use crate::evaluation::policies::compiled::outcome::GeneratorOutcome;
 
-pub const DEFAULT_MAX_CACHE_MISS_RATIO: f64 = 0.15;
-pub const DEFAULT_MIN_LOCALITY_SCORE: f64 = 0.50;
+pub const RSS_UNMEASURED_REASON: &str = "peak RSS not available from /usr/bin/time";
 
+/// `fault_p` is the two-sided p-value of the page-fault paired delta, when
+/// observed. A significant *increase* (`delta > 0` and `p ≤ 0.05`) fails
+/// the generator even if RSS stayed in budget.
 pub fn score_locality(
-    cache_miss_ratio: Option<f64>,
-    locality_score: Option<f64>,
-) -> ScoredDecision {
-    let mut interpretation = HashMap::new();
-    let mut achieved = true;
-    let mut qualities = Vec::new();
-
-    if let Some(miss_ratio) = cache_miss_ratio {
-        let max_miss = DEFAULT_MAX_CACHE_MISS_RATIO;
-        let pass = miss_ratio <= max_miss;
-        if !pass {
-            achieved = false;
-        }
-        let quality = (1.0 - miss_ratio / max_miss).clamp(0.0, 1.0);
-        qualities.push(quality);
-        interpretation.insert(
-            "bitcode.cache_miss_ratio".to_string(),
-            format!(
-                "Cache miss ratio: {:.2} (max {:.2}, {})",
-                miss_ratio,
-                max_miss,
-                if pass { "PASS" } else { "FAIL" }
-            ),
-        );
-    }
-
-    if let Some(locality) = locality_score {
-        let min_locality = DEFAULT_MIN_LOCALITY_SCORE;
-        let pass = locality >= min_locality;
-        if !pass {
-            achieved = false;
-        }
-        let quality = locality.clamp(0.0, 1.0);
-        qualities.push(quality);
-        interpretation.insert(
-            "bitcode.locality_score".to_string(),
-            format!(
-                "Locality score: {:.2} (min {:.2}, {})",
-                locality,
-                min_locality,
-                if pass { "PASS" } else { "FAIL" }
-            ),
-        );
-    }
-
-    let score = if qualities.is_empty() {
-        1.0
-    } else {
-        qualities.into_iter().fold(f64::INFINITY, f64::min)
+    baseline_rss: Option<u64>,
+    variant_rss: Option<u64>,
+    max_rss_increase_pct: f64,
+    fault_increase_pct: Option<f64>,
+    fault_p: Option<f64>,
+) -> GeneratorOutcome {
+    let (Some(baseline), Some(variant)) = (baseline_rss, variant_rss) else {
+        return GeneratorOutcome::Unmeasured {
+            reason: RSS_UNMEASURED_REASON,
+        };
     };
-
-    ScoredDecision {
-        score,
-        achieved,
-        interpretation,
+    if baseline == 0 {
+        return GeneratorOutcome::Unmeasured {
+            reason: "baseline peak RSS is zero; MEMORY FOOTPRINT delta is undefined",
+        };
+    }
+    let delta_pct = (variant as f64 - baseline as f64) / baseline as f64 * 100.0;
+    let faults_worse = matches!(
+        (fault_increase_pct, fault_p),
+        (Some(delta), Some(p)) if delta > 0.0 && p <= 0.05
+    );
+    let detail = match fault_increase_pct {
+        Some(fd) => format!(
+            "RSS {delta_pct:+.2}% (budget {max_rss_increase_pct:.1}%), page faults {fd:+.2}%"
+        ),
+        None => format!("RSS {delta_pct:+.2}% (budget {max_rss_increase_pct:.1}%)"),
+    };
+    if delta_pct <= max_rss_increase_pct && !faults_worse {
+        GeneratorOutcome::Satisfied {
+            delta_pct,
+            p_value: fault_p,
+            detail,
+        }
+    } else {
+        GeneratorOutcome::Violated {
+            delta_pct,
+            p_value: fault_p,
+            detail,
+        }
     }
 }
 
@@ -70,16 +60,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_score_locality_pass() {
-        let decision = score_locality(Some(0.05), Some(0.85));
-        assert!(decision.achieved);
-        assert!(decision.score > 0.5);
+    fn missing_rss_is_unmeasured() {
+        let outcome = score_locality(None, None, 10.0, None, None);
+        assert!(matches!(
+            outcome,
+            GeneratorOutcome::Unmeasured {
+                reason: RSS_UNMEASURED_REASON
+            }
+        ));
     }
 
     #[test]
-    fn test_score_locality_fail() {
-        let decision = score_locality(Some(0.30), Some(0.85));
-        assert!(!decision.achieved);
-        assert_eq!(decision.score, 0.0);
+    fn rss_in_budget_without_worse_faults_is_satisfied() {
+        let outcome = score_locality(Some(1000), Some(1050), 10.0, Some(1.0), Some(0.8));
+        assert!(outcome.is_satisfied());
+    }
+
+    #[test]
+    fn significantly_worse_page_faults_violate_even_when_rss_is_in_budget() {
+        let outcome = score_locality(Some(1000), Some(1000), 10.0, Some(50.0), Some(0.01));
+        assert!(matches!(outcome, GeneratorOutcome::Violated { .. }));
     }
 }

@@ -1,303 +1,229 @@
-//! Optimization plan definition, thresholds, risk bounds, and validation logic.
+//! Optimization plan: variants, thresholds, and a blake2 digest.
+//!
+//! No invented risk scores, no "unsafe pass" list, no `opt` pass names.
+//! The digest is blake2b-16 over canonical plan JSON (the digest field
+//! itself is excluded) so an approval cannot be replayed against a
+//! different plan.
 
-use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf;
 
-/// High-level LLVM / MLIR optimization pass specifications.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum OptimizationPass {
-    O2,
-    O3,
-    Os,
-    Oz,
-    LTO,
-    PGO,
-    LoopVectorize,
-    SLPVectorize,
-    Inlining,
-    MlirFusion,
-    Custom(String),
-}
+use blake2::digest::{Update, VariableOutput};
+use blake2::Blake2bVar;
+use serde::{Deserialize, Serialize};
 
-impl OptimizationPass {
-    /// Returns the command-line flag or opt pass name corresponding to this pass.
-    pub fn to_flag(&self) -> String {
-        match self {
-            OptimizationPass::O2 => "-O2".to_string(),
-            OptimizationPass::O3 => "-O3".to_string(),
-            OptimizationPass::Os => "-Os".to_string(),
-            OptimizationPass::Oz => "-Oz".to_string(),
-            OptimizationPass::LTO => "-flto".to_string(),
-            OptimizationPass::PGO => "-fprofile-use".to_string(),
-            OptimizationPass::LoopVectorize => "loop-vectorize".to_string(),
-            OptimizationPass::SLPVectorize => "slp-vectorizer".to_string(),
-            OptimizationPass::Inlining => "inline".to_string(),
-            OptimizationPass::MlirFusion => "mlir-fusion".to_string(),
-            OptimizationPass::Custom(flag) => flag.clone(),
-        }
-    }
+use super::variant::{FlagVariant, VariantError};
 
-    /// Base risk rating for this pass (0.0 = safe, 1.0 = highly risky).
-    pub fn base_risk(&self) -> f64 {
-        match self {
-            OptimizationPass::O2 => 0.1,
-            OptimizationPass::Os | OptimizationPass::Oz => 0.15,
-            OptimizationPass::O3 => 0.3,
-            OptimizationPass::LTO => 0.25,
-            OptimizationPass::PGO => 0.2,
-            OptimizationPass::LoopVectorize | OptimizationPass::SLPVectorize => 0.35,
-            OptimizationPass::Inlining => 0.2,
-            OptimizationPass::MlirFusion => 0.5,
-            OptimizationPass::Custom(_) => 0.6,
-        }
-    }
+const MIN_MEASURED_RUNS: u32 = 6;
+const MAX_MEASURED_RUNS: u32 = 20;
 
-    /// Whether this pass is considered an aggressive or unsafe optimization.
-    pub fn is_unsafe(&self) -> bool {
-        matches!(
-            self,
-            OptimizationPass::MlirFusion | OptimizationPass::Custom(_)
-        ) || self.base_risk() >= 0.5
-    }
-}
-
-/// Target performance and quality thresholds required by a plan.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TargetThresholds {
-    pub min_speedup_pct: f64,
-    pub max_size_increase_pct: f64,
-    pub max_energy_increase_pct: f64,
-    pub min_divergence_quality: f64,
-}
-
-impl Default for TargetThresholds {
-    fn default() -> Self {
-        Self {
-            min_speedup_pct: 5.0,
-            max_size_increase_pct: 10.0,
-            max_energy_increase_pct: 0.0,
-            min_divergence_quality: 0.40,
-        }
-    }
-}
-
-/// Risk bounds and governance controls for an optimization plan.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RiskBounds {
-    pub max_risk_score: f64,
-    pub allow_unsafe_optimizations: bool,
-    pub max_pass_count: usize,
-    pub require_human_approval: bool,
-}
-
-impl Default for RiskBounds {
-    fn default() -> Self {
-        Self {
-            max_risk_score: 0.50,
-            allow_unsafe_optimizations: false,
-            max_pass_count: 10,
-            require_human_approval: true,
-        }
-    }
-}
-
-/// Lifecycle status of an optimization plan.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PlanStatus {
-    Draft,
-    Validated,
-    Approved,
-    Rejected,
-    Executed,
-    RolledBack,
-}
-
-/// Errors raised during optimization plan validation.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum PlanValidationError {
-    InvalidSpeedupTarget(f64),
-    InvalidRiskScore(f64),
-    ExceededMaxPassCount { actual: usize, max: usize },
-    ExceededRiskBound { score: f64, max_risk: f64 },
-    MissingPgoProfile,
-    UnsafePassNotAllowed(OptimizationPass),
-    EmptyPassSequence,
-}
-
-impl fmt::Display for PlanValidationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PlanValidationError::InvalidSpeedupTarget(val) => {
-                write!(f, "Invalid speedup target: {val}% (must be > 0)")
-            }
-            PlanValidationError::InvalidRiskScore(val) => {
-                write!(
-                    f,
-                    "Invalid max risk score bound: {val} (must be between 0.0 and 1.0)"
-                )
-            }
-            PlanValidationError::ExceededMaxPassCount { actual, max } => {
-                write!(
-                    f,
-                    "Pass count {actual} exceeds maximum allowed bound of {max}"
-                )
-            }
-            PlanValidationError::ExceededRiskBound { score, max_risk } => {
-                write!(f, "Computed plan risk score {score:.2} exceeds maximum allowed risk of {max_risk:.2}")
-            }
-            PlanValidationError::MissingPgoProfile => {
-                write!(f, "PGO pass enabled but no pgo_profile_path was provided")
-            }
-            PlanValidationError::UnsafePassNotAllowed(pass) => {
-                write!(
-                    f,
-                    "Unsafe pass '{pass:?}' not allowed under current risk bounds"
-                )
-            }
-            PlanValidationError::EmptyPassSequence => {
-                write!(f, "Plan contains no optimization passes")
-            }
-        }
-    }
-}
-
-impl std::error::Error for PlanValidationError {}
-
-/// Structured specification for an optimization run.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OptimizationPlan {
-    pub plan_id: String,
-    pub target_binary: PathBuf,
-    pub target_thresholds: TargetThresholds,
-    pub risk_bounds: RiskBounds,
-    pub passes: Vec<OptimizationPass>,
-    pub enable_pgo: bool,
-    pub pgo_profile_path: Option<PathBuf>,
-    pub status: PlanStatus,
+    pub source: Option<PathBuf>,
+    pub build_command: Option<Vec<String>>,
+    pub run_command: Vec<String>,
+    pub variants: Vec<String>,
+    pub min_speedup_pct: f64,
+    pub max_size_increase_pct: f64,
+    pub max_rss_increase_pct: f64,
+    pub warmup_runs: u32,
+    pub measured_runs: u32,
+    pub timeout_ms: u64,
+    pub digest: String,
+}
+
+#[derive(Serialize)]
+struct DigestBody<'a> {
+    source: &'a Option<PathBuf>,
+    build_command: &'a Option<Vec<String>>,
+    run_command: &'a [String],
+    variants: &'a [String],
+    min_speedup_pct: f64,
+    max_size_increase_pct: f64,
+    max_rss_increase_pct: f64,
+    warmup_runs: u32,
+    measured_runs: u32,
+    timeout_ms: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlanSpec {
+    pub source: Option<PathBuf>,
+    pub build_command: Option<Vec<String>>,
+    pub run_command: Vec<String>,
+    pub variants: Vec<FlagVariant>,
+    pub min_speedup_pct: f64,
+    pub max_size_increase_pct: f64,
+    pub max_rss_increase_pct: f64,
+    pub warmup_runs: u32,
+    pub measured_runs: u32,
+    pub timeout_ms: u64,
 }
 
 impl OptimizationPlan {
-    pub fn new(plan_id: impl Into<String>, target_binary: impl Into<PathBuf>) -> Self {
-        Self {
-            plan_id: plan_id.into(),
-            target_binary: target_binary.into(),
-            target_thresholds: TargetThresholds::default(),
-            risk_bounds: RiskBounds::default(),
-            passes: vec![OptimizationPass::O2],
-            enable_pgo: false,
-            pgo_profile_path: None,
-            status: PlanStatus::Draft,
+    pub fn new(spec: PlanSpec) -> Result<Self, PlanError> {
+        if spec.variants.is_empty() {
+            return Err(PlanError::NoVariants);
         }
-    }
-
-    /// Compute cumulative risk score for the plan based on pass sequence.
-    pub fn compute_risk_score(&self) -> f64 {
-        if self.passes.is_empty() {
-            return 0.0;
-        }
-
-        let base_sum: f64 = self.passes.iter().map(|p| p.base_risk()).sum();
-        let avg_risk = base_sum / (self.passes.len() as f64);
-        let pgo_penalty = if self.enable_pgo { 0.05 } else { 0.0 };
-
-        (avg_risk + pgo_penalty).min(1.0)
-    }
-
-    /// Validate plan parameters against thresholds and risk bounds.
-    pub fn validate(&mut self) -> Result<(), PlanValidationError> {
-        if self.target_thresholds.min_speedup_pct <= 0.0 {
-            return Err(PlanValidationError::InvalidSpeedupTarget(
-                self.target_thresholds.min_speedup_pct,
-            ));
-        }
-
-        if self.risk_bounds.max_risk_score < 0.0 || self.risk_bounds.max_risk_score > 1.0 {
-            return Err(PlanValidationError::InvalidRiskScore(
-                self.risk_bounds.max_risk_score,
-            ));
-        }
-
-        if self.passes.is_empty() {
-            return Err(PlanValidationError::EmptyPassSequence);
-        }
-
-        if self.passes.len() > self.risk_bounds.max_pass_count {
-            return Err(PlanValidationError::ExceededMaxPassCount {
-                actual: self.passes.len(),
-                max: self.risk_bounds.max_pass_count,
+        if !(MIN_MEASURED_RUNS..=MAX_MEASURED_RUNS).contains(&spec.measured_runs) {
+            return Err(PlanError::MeasuredRunsOutOfRange {
+                measured_runs: spec.measured_runs,
+                min: MIN_MEASURED_RUNS,
+                max: MAX_MEASURED_RUNS,
             });
         }
-
-        if self.enable_pgo && self.pgo_profile_path.is_none() {
-            return Err(PlanValidationError::MissingPgoProfile);
+        if spec.min_speedup_pct <= 0.0 {
+            return Err(PlanError::InvalidSpeedup(spec.min_speedup_pct.to_string()));
         }
+        let mut plan = Self {
+            source: spec.source,
+            build_command: spec.build_command,
+            run_command: spec.run_command,
+            variants: spec.variants.iter().map(|v| v.id().to_string()).collect(),
+            min_speedup_pct: spec.min_speedup_pct,
+            max_size_increase_pct: spec.max_size_increase_pct,
+            max_rss_increase_pct: spec.max_rss_increase_pct,
+            warmup_runs: spec.warmup_runs,
+            measured_runs: spec.measured_runs,
+            timeout_ms: spec.timeout_ms,
+            digest: String::new(),
+        };
+        plan.digest = plan.compute_digest();
+        Ok(plan)
+    }
 
-        for pass in &self.passes {
-            if pass.is_unsafe() && !self.risk_bounds.allow_unsafe_optimizations {
-                return Err(PlanValidationError::UnsafePassNotAllowed(pass.clone()));
-            }
+    pub fn parsed_variants(&self) -> Result<Vec<FlagVariant>, VariantError> {
+        self.variants
+            .iter()
+            .map(|id| FlagVariant::parse(id))
+            .collect()
+    }
+
+    pub fn compute_digest(&self) -> String {
+        let body = DigestBody {
+            source: &self.source,
+            build_command: &self.build_command,
+            run_command: &self.run_command,
+            variants: &self.variants,
+            min_speedup_pct: self.min_speedup_pct,
+            max_size_increase_pct: self.max_size_increase_pct,
+            max_rss_increase_pct: self.max_rss_increase_pct,
+            warmup_runs: self.warmup_runs,
+            measured_runs: self.measured_runs,
+            timeout_ms: self.timeout_ms,
+        };
+        let bytes = serde_json::to_vec(&body).expect("digest body is always serializable");
+        blake2b16_hex(&bytes)
+    }
+
+    pub fn verify_digest(&self) -> bool {
+        self.digest == self.compute_digest()
+    }
+
+    pub fn from_json(text: &str) -> Result<Self, PlanError> {
+        let plan: Self = serde_json::from_str(text).map_err(|e| PlanError::Json(e.to_string()))?;
+        if !plan.verify_digest() {
+            return Err(PlanError::DigestMismatch);
         }
-
-        let score = self.compute_risk_score();
-        if score > self.risk_bounds.max_risk_score {
-            return Err(PlanValidationError::ExceededRiskBound {
-                score,
-                max_risk: self.risk_bounds.max_risk_score,
-            });
-        }
-
-        self.status = PlanStatus::Validated;
-        Ok(())
+        Ok(plan)
     }
 }
+
+pub fn blake2b16_hex(bytes: &[u8]) -> String {
+    let mut hasher = Blake2bVar::new(16).expect("16 is a valid BLAKE2b-var digest size");
+    hasher.update(bytes);
+    let mut out = [0u8; 16];
+    hasher
+        .finalize_variable(&mut out)
+        .expect("16-byte BLAKE2b output");
+    out.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PlanError {
+    NoVariants,
+    MeasuredRunsOutOfRange {
+        measured_runs: u32,
+        min: u32,
+        max: u32,
+    },
+    InvalidSpeedup(String),
+    DigestMismatch,
+    Json(String),
+}
+
+impl fmt::Display for PlanError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PlanError::NoVariants => write!(f, "plan must name at least one variant"),
+            PlanError::MeasuredRunsOutOfRange {
+                measured_runs,
+                min,
+                max,
+            } => write!(
+                f,
+                "measured_runs must be {min}..={max}, got {measured_runs}"
+            ),
+            PlanError::InvalidSpeedup(val) => {
+                write!(f, "min_speedup_pct must be > 0, got {val}")
+            }
+            PlanError::DigestMismatch => {
+                write!(f, "plan digest does not match canonical contents")
+            }
+            PlanError::Json(err) => write!(f, "plan JSON: {err}"),
+        }
+    }
+}
+
+impl std::error::Error for PlanError {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_valid_default_plan() {
-        let mut plan = OptimizationPlan::new("plan-001", "target/bin");
-        assert_eq!(plan.status, PlanStatus::Draft);
-        assert!(plan.validate().is_ok());
-        assert_eq!(plan.status, PlanStatus::Validated);
+    fn spec(runs: u32, min_speedup_pct: f64) -> PlanSpec {
+        PlanSpec {
+            source: Some(PathBuf::from("a.c")),
+            build_command: None,
+            run_command: vec!["{output}".into()],
+            variants: vec![FlagVariant::O2, FlagVariant::O3],
+            min_speedup_pct,
+            max_size_increase_pct: 10.0,
+            max_rss_increase_pct: 10.0,
+            warmup_runs: 2,
+            measured_runs: runs,
+            timeout_ms: 60_000,
+        }
+    }
+
+    fn minimal(runs: u32) -> Result<OptimizationPlan, PlanError> {
+        OptimizationPlan::new(spec(runs, 5.0))
     }
 
     #[test]
-    fn test_exceeded_pass_count() {
-        let mut plan = OptimizationPlan::new("plan-002", "target/bin");
-        plan.risk_bounds.max_pass_count = 2;
-        plan.passes = vec![
-            OptimizationPass::O2,
-            OptimizationPass::LoopVectorize,
-            OptimizationPass::Inlining,
-        ];
-        assert!(matches!(
-            plan.validate(),
-            Err(PlanValidationError::ExceededMaxPassCount { actual: 3, max: 2 })
-        ));
+    fn digest_covers_thresholds_not_a_hardcoded_timestamp() {
+        let plan = minimal(10).unwrap();
+        assert_eq!(plan.digest.len(), 32);
+        assert_ne!(plan.digest, "2026-08-20T19:00:00Z");
+        assert!(plan.verify_digest());
     }
 
     #[test]
-    fn test_missing_pgo_profile_error() {
-        let mut plan = OptimizationPlan::new("plan-pgo", "target/bin");
-        plan.enable_pgo = true;
-        plan.pgo_profile_path = None;
-        assert!(matches!(
-            plan.validate(),
-            Err(PlanValidationError::MissingPgoProfile)
-        ));
+    fn changing_a_threshold_changes_the_digest() {
+        let a = minimal(10).unwrap();
+        let b = OptimizationPlan::new(spec(10, 20.0)).unwrap();
+        assert_ne!(a.digest, b.digest);
     }
 
     #[test]
-    fn test_unsafe_pass_rejection() {
-        let mut plan = OptimizationPlan::new("plan-unsafe", "target/bin");
-        plan.passes.push(OptimizationPass::MlirFusion);
-        plan.risk_bounds.allow_unsafe_optimizations = false;
+    fn measured_runs_below_six_are_rejected() {
+        let err = minimal(3).unwrap_err();
         assert!(matches!(
-            plan.validate(),
-            Err(PlanValidationError::UnsafePassNotAllowed(_))
+            err,
+            PlanError::MeasuredRunsOutOfRange {
+                measured_runs: 3,
+                ..
+            }
         ));
     }
 }
