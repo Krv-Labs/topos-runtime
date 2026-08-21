@@ -9,6 +9,16 @@ that section. See the Git History & Release Convention in [`.agents/AGENTS.md`](
 
 ## [Unreleased]
 
+### Added
+
+- **Topos-runtime v0.1.0 — Closed-loop compiled binary agent and execution engine**:
+  - **4 Compiled Pillars & Heyting Lattice ($\Omega_{\text{bitcode}}$)**: Evaluates compiled binaries and IR objects (`linked.bc`, MLIR) across `SPEED`, `SIZE`, `ENERGY`, and `LOCALITY`, deriving compiled medal tiers (SLOP $\to$ PLATINUM).
+  - **Closed-Loop Optimization Pipeline**: 5-phase optimization loop (Baseline Evaluation $\to$ Opportunity Identification $\to$ Optimization Plan Generation $\to$ Human Approval Gate $\to$ Recompilation & Gain Verification).
+  - **Subprocess Adapters**: Integrated wrappers for Clang, `llvm-link`, `opt`, `llvm-profdata`, `mlir-opt`, Linux `perf`, Intel RAPL energy reader, and macOS `powermetrics` fallback.
+  - **`topos compiled` CLI Subcommand Suite**: `evaluate`, `inspect`, `plan`, `recompile`, `compare`, and `rollback` subcommands with tabular prose and machine-readable `--json` outputs.
+  - **6 Compiled MCP Tools & Resource**: `topos_compiled_evaluate`, `topos_compiled_identify_opportunities`, `topos_compiled_propose_plan`, `topos_compiled_recompile`, `topos_compiled_verify_gains`, `topos_compiled_rollback`, plus `topos://docs/compiled-agent-loop` documentation resource.
+  - See decision record [`docs/decisions/v0.1.0-topos-runtime-compiled-loop.md`](docs/decisions/v0.1.0-topos-runtime-compiled-loop.md).
+
 ### Breaking
 
 - **Graphify integration removed** (~1,680 production lines). Every signal it provided was already available from the GitNexus/MDG graph Topos loads for COMPOSABLE, usually at better fidelity — full `startLine`/`endLine` spans instead of point anchors, a first-class `Community` node label with `MEMBER_OF` edges instead of a bare Louvain field, and a continuous `confidence: f64` + `reason` instead of a three-value enum. It had no production consumer, no CI coverage, and no agent-facing recommendation, and it wrapped a pre-1.0 external tool with a documented history of schema breaks. See [`docs/decisions/refactor-suite.md`](docs/decisions/refactor-suite.md) § Removed target and issue [#325](https://github.com/Krv-Labs/topos/issues/325).

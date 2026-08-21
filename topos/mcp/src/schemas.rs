@@ -649,6 +649,7 @@ impl RefactorTargetKind {
 #[serde(rename_all = "kebab-case")]
 pub enum DocTopic {
     AgentContract,
+    CompiledAgentLoop,
     Lattice,
     Metrics,
     Preferences,
@@ -660,8 +661,148 @@ pub enum DocTopic {
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GetDocInput {
-    /// agent-contract | lattice | metrics | preferences | priority | workflows
+    /// agent-contract | compiled-agent-loop | lattice | metrics | preferences | priority | workflows
     pub topic: DocTopic,
+}
+
+/// Arguments for `topos_compiled_evaluate`.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompiledEvaluateInput {
+    #[serde(default)]
+    pub filepath: Option<String>,
+    #[serde(default)]
+    pub code: Option<String>,
+    #[serde(default)]
+    pub gitnexus_dir: Option<String>,
+    #[serde(default)]
+    pub no_composable: bool,
+    #[serde(default)]
+    pub preferences: Option<UserPreferencesInput>,
+}
+
+/// Arguments for `topos_compiled_identify_opportunities`.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompiledIdentifyOpportunitiesInput {
+    pub filepath: String,
+    #[serde(default)]
+    pub gitnexus_dir: Option<String>,
+    #[serde(default)]
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub preferences: Option<UserPreferencesInput>,
+}
+
+/// Arguments for `topos_compiled_propose_plan`.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompiledProposePlanInput {
+    pub filepath: String,
+    #[serde(default)]
+    pub target_verdict: Option<LatticeElement>,
+    #[serde(default)]
+    pub preferences: Option<UserPreferencesInput>,
+    #[serde(default)]
+    pub gitnexus_dir: Option<String>,
+}
+
+/// Arguments for `topos_compiled_recompile`.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompiledRecompileInput {
+    pub filepath: String,
+    #[serde(default)]
+    pub plan_id: Option<String>,
+    #[serde(default)]
+    pub step: Option<usize>,
+    #[serde(default)]
+    pub gitnexus_dir: Option<String>,
+}
+
+/// Arguments for `topos_compiled_verify_gains`.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompiledVerifyGainsInput {
+    pub filepath: String,
+    #[serde(default)]
+    pub baseline_ref: Option<String>,
+    #[serde(default)]
+    pub snapshot_id: Option<String>,
+    #[serde(default)]
+    pub preferences: Option<UserPreferencesInput>,
+    #[serde(default)]
+    pub gitnexus_dir: Option<String>,
+}
+
+/// Arguments for `topos_compiled_rollback`.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompiledRollbackInput {
+    pub filepath: String,
+    #[serde(default)]
+    pub snapshot_id: Option<String>,
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CompiledOpportunity {
+    pub kind: String,
+    pub location: String,
+    pub line_start: usize,
+    pub line_end: usize,
+    pub score: f64,
+    pub suggestion: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CompiledPlanStep {
+    pub step: usize,
+    pub target_pillar: String,
+    pub action: String,
+    pub expected_gain: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CompiledPlanResult {
+    pub plan_id: String,
+    pub filepath: String,
+    pub current_verdict: LatticeElement,
+    pub target_verdict: LatticeElement,
+    pub steps: Vec<CompiledPlanStep>,
+    pub estimated_iterations: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CompiledRecompileResult {
+    pub filepath: String,
+    pub snapshot_id: String,
+    pub status: String,
+    pub plan_id: Option<String>,
+    pub step: Option<usize>,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CompiledVerifyGainsResult {
+    pub filepath: String,
+    pub status: AssessmentStatus,
+    pub accepted: bool,
+    pub verdict_before: LatticeElement,
+    pub verdict_after: LatticeElement,
+    pub ast_distance: Option<f64>,
+    pub score_deltas: HashMap<String, f64>,
+    pub requires_rollback: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CompiledRollbackResult {
+    pub filepath: String,
+    pub snapshot_id: Option<String>,
+    pub status: String,
+    pub reason: Option<String>,
+    pub message: String,
 }
 
 // ---------------------------------------------------------------------------

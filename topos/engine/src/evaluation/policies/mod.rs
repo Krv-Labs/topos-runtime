@@ -8,6 +8,7 @@
 pub mod base;
 pub mod calibration;
 pub mod clones;
+pub mod compiled;
 pub mod composable;
 pub mod coverage;
 pub mod gates;

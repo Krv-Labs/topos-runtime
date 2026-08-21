@@ -87,7 +87,8 @@ impl ToposServer {
             + Self::docs_router()
             + Self::inspect_router()
             + Self::preferences_router()
-            + Self::refactor_router();
+            + Self::refactor_router()
+            + Self::compiled_tools_router();
         ToposServer { tool_router }
     }
 
@@ -134,6 +135,9 @@ fn doc_description(slug: &str) -> &'static str {
         "agent-contract" => {
             "Compact outcome-first contract for agent loops: targets, gates, risks, and \
              next-tool fields."
+        }
+        "compiled-agent-loop" => {
+            "Guide for the compiled agent loop: offline analysis, opportunities, plan proposal, recompilation, gain verification, and rollback."
         }
         "lattice" => {
             "The 16-element H(G_qual) over {SIMPLE, COMPOSABLE, SECURE, NAVIGABLE}; bottom = SLOP, \

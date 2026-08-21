@@ -34,3 +34,4 @@ pub mod core;
 pub mod evaluation;
 pub mod functors;
 pub mod graphs;
+pub mod optimization;

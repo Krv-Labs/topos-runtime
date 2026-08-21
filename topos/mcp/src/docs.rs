@@ -9,6 +9,7 @@
 use crate::schemas::DocTopic;
 
 pub const AGENT_CONTRACT: &str = include_str!("../docs/content/agent-contract.md");
+pub const COMPILED_AGENT_LOOP: &str = include_str!("../docs/content/compiled-agent-loop.md");
 pub const LATTICE: &str = include_str!("../docs/content/lattice.md");
 pub const METRICS: &str = include_str!("../docs/content/metrics.md");
 pub const PREFERENCES: &str = include_str!("../docs/content/preferences.md");
@@ -19,6 +20,7 @@ pub const WORKFLOWS: &str = include_str!("../docs/content/workflows.md");
 pub fn doc_content(topic: DocTopic) -> &'static str {
     match topic {
         DocTopic::AgentContract => AGENT_CONTRACT,
+        DocTopic::CompiledAgentLoop => COMPILED_AGENT_LOOP,
         DocTopic::Lattice => LATTICE,
         DocTopic::Metrics => METRICS,
         DocTopic::Preferences => PREFERENCES,
@@ -32,6 +34,7 @@ pub fn doc_content(topic: DocTopic) -> &'static str {
 pub fn doc_content_for_slug(slug: &str) -> Option<&'static str> {
     match slug {
         "agent-contract" => Some(AGENT_CONTRACT),
+        "compiled-agent-loop" => Some(COMPILED_AGENT_LOOP),
         "lattice" => Some(LATTICE),
         "metrics" => Some(METRICS),
         "preferences" => Some(PREFERENCES),
@@ -41,9 +44,10 @@ pub fn doc_content_for_slug(slug: &str) -> Option<&'static str> {
     }
 }
 
-/// The six resource slugs, in listing order.
-pub const DOC_SLUGS: [&str; 6] = [
+/// The seven resource slugs, in listing order.
+pub const DOC_SLUGS: [&str; 7] = [
     "agent-contract",
+    "compiled-agent-loop",
     "lattice",
     "metrics",
     "priority",

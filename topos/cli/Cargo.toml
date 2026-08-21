@@ -24,6 +24,7 @@ clap = { version = "4", features = ["derive"] }
 # `~/.claude.json` is alphabetically re-sorted on write. It has to be declared
 # here rather than inherited: `resolver = "2"` keeps tree-sitter's
 # build-dependency copy from unifying the feature.
+serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 # Already present transitively through the MCP stack; used directly for
 # terminal progress and the lightweight interactive config selector.
@@ -31,3 +32,8 @@ indicatif = "0.17.11"
 console = "0.15.11"
 # Preserve comments and unrelated settings when updating `.topos.toml`.
 toml_edit = "0.22.27"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+tempfile = "3.8"
+

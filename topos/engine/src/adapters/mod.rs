@@ -25,3 +25,5 @@ mod process;
 
 pub mod discovery;
 pub mod gitnexus;
+pub mod llvm;
+pub mod perf;
