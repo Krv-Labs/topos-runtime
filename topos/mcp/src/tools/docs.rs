@@ -23,7 +23,7 @@ impl ToposServer {
     /// equivalent resource URI for efficiency: `topos://docs/{topic}`.
     ///
     /// Topics: `agent-contract` (compact loop contract, read first for
-    /// refactors), `compiled-agent-loop` (guide for compiled offline refactor loop),
+    /// refactors),
     /// `lattice` (the 16-element H(G_qual) over four generators),
     /// `metrics` (every metric key, thresholds, interpretation),
     /// `preferences` (strict generator rankings and preference walks),

@@ -260,6 +260,24 @@ repository (quickstart, architecture, domain, operations, integrations).
 Agents with workspace access should read those files directly; they are
 **not** MCP resources.
 
+## Compiled baseline benchmarks
+
+`topos_benchmark` is a separate signal from the lattice. It compiles the C
+workloads named in a benchmark manifest, runs each one, and reports measured
+wall-clock time, static instruction count, and binary size per workload.
+
+- `manifest_path` — benchmark manifest TOML; defaults to the repo manifest.
+- `compare_baseline` — path to a stored baseline JSON. When given, the response
+  carries `baseline_violations`: one message per workload whose wall-clock time
+  regressed beyond `tolerance_pct`.
+- `write_baseline` — write the current run to a baseline JSON for later runs to
+  compare against.
+
+It requires `clang` on `PATH` and errors plainly when the toolchain is missing —
+it never substitutes an estimate for a measurement. Its numbers are wall-clock
+observations on the machine that ran them, not a portable claim, and it does
+not feed the SIMPLE/COMPOSABLE/SECURE/NAVIGABLE verdict.
+
 ## What Topos does NOT measure
 
 - **Whether tests pass or behavior is preserved.** A refactor can lift the
@@ -271,7 +289,9 @@ Agents with workspace access should read those files directly; they are
   *preservation of behavior*. Verify behavior with relevant project tests or
   equivalent checks when available; if unavailable or not run, report that
   explicitly.
-- **Runtime performance.** Orthogonal to all Topos metrics.
+- **Runtime performance.** Orthogonal to all *lattice* metrics — no structural
+  score predicts execution speed. Measured separately by `topos_benchmark`,
+  whose figures never feed the verdict.
 - **Beyond-syntactic security.** The SECURE generator catches obvious
   footguns (dangerous-API call sites, source→sink taint paths) via
   textual / structural pattern matching on the CPG.  It is not a full

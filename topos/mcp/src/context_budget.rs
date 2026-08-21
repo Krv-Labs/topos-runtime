@@ -24,8 +24,8 @@ mod tests {
     /// from 3 to 4 — a one-time payment for a genuinely larger `Ω`. Treat
     /// any increase as a regression to investigate rather than a number to
     /// raise again; every removal ratchets this down.
-    /// Updated to 50_000 for the v0.1.0 compiled agent loop tool suite (6 new tools).
-    const TOTAL_CEILING_CHARS: usize = 50_000;
+    /// Ratcheted back to 39_500 when the six fabricated compiled tools were removed.
+    const TOTAL_CEILING_CHARS: usize = 39_500;
     const PER_TOOL_CEILING_CHARS: usize = 5_000;
 
     fn approx_tokens(chars: usize) -> usize {

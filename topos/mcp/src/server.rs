@@ -88,7 +88,7 @@ impl ToposServer {
             + Self::inspect_router()
             + Self::preferences_router()
             + Self::refactor_router()
-            + Self::compiled_tools_router();
+            + Self::benchmark_router();
         ToposServer { tool_router }
     }
 

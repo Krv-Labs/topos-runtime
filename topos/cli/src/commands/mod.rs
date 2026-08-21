@@ -1,8 +1,8 @@
 //! One module per `topos` subcommand, plus a shared [`lang`] helper.
 
+pub mod benchmark;
 mod classify;
 pub mod compare;
-pub mod compiled;
 mod composable;
 pub mod config;
 pub mod coverage;

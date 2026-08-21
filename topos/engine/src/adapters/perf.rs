@@ -227,6 +227,48 @@ impl ProfileCollector {
         }
     }
 
+    pub fn collect_for_command(
+        program: &Path,
+        args: &[String],
+        timeout: Option<Duration>,
+    ) -> SystemPerformanceProfile {
+        let timeout = timeout.unwrap_or(Duration::from_secs(120));
+        if cfg!(target_os = "linux") && LinuxPerfReader::is_available() {
+            if let Ok(profile) = Self::collect_linux_perf_command(program, args, timeout) {
+                return profile;
+            }
+        }
+        SystemPerformanceProfile {
+            platform: std::env::consts::OS.into(),
+            is_degraded: true,
+            ..Default::default()
+        }
+    }
+
+    fn collect_linux_perf_command(
+        program: &Path,
+        args: &[String],
+        timeout: Duration,
+    ) -> Result<SystemPerformanceProfile, PerfError> {
+        let mut cmd = Command::new("perf");
+        cmd.arg("stat")
+            .arg("-e")
+            .arg("cycles,instructions,cache-misses")
+            .arg("--")
+            .arg(program);
+        for arg in args {
+            cmd.arg(arg);
+        }
+        let out = run_with_timeout(cmd, None, true, Some(timeout))
+            .map_err(|e| PerfError::Io(std::io::Error::other(format!("{e:?}"))))?;
+        if out.status_code != Some(0) {
+            return Err(PerfError::ParseError(out.stderr));
+        }
+        let mut profile = LinuxPerfReader::parse_perf_stat(&out.stderr);
+        profile.is_degraded = false;
+        Ok(profile)
+    }
+
     fn collect_linux_perf(duration: Duration) -> Result<SystemPerformanceProfile, PerfError> {
         let mut cmd = Command::new("perf");
         cmd.arg("stat")

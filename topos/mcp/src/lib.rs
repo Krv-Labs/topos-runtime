@@ -5,7 +5,6 @@
 //! schemas, orchestration, formatting, and the stdio server.
 
 pub mod build_info;
-pub mod compiled_tools;
 pub mod diagnostics;
 pub mod docs;
 pub mod evaluation;

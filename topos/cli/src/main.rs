@@ -12,7 +12,7 @@ use std::io::IsTerminal;
 use clap::{Parser, Subcommand};
 use console::Style;
 
-use commands::{compare, compiled, config, coverage, depgraph, evaluate, inspect, install, mcp};
+use commands::{benchmark, compare, config, coverage, depgraph, evaluate, inspect, install, mcp};
 
 const ROOT_COMMANDS: [(&str, &str); 11] = [
     ("evaluate", "Score a file or directory"),
@@ -21,7 +21,7 @@ const ROOT_COMMANDS: [(&str, &str); 11] = [
     ("compare", "Compare two files"),
     ("coverage", "Compare source structure with tests"),
     ("depgraph", "Build the COMPOSABLE graph"),
-    ("compiled", "Manage compiled artifacts and workflows"),
+    ("benchmark", "Run compiled baseline benchmark workloads"),
     ("install", "Configure agent harnesses to use Topos"),
     ("uninstall", "Remove Topos from agent harnesses"),
     ("status", "Show which harnesses are configured"),
@@ -58,8 +58,8 @@ enum Command {
     Coverage(coverage::CoverageArgs),
     /// Build the GitNexus graph used by COMPOSABLE.
     Depgraph(depgraph::DepgraphArgs),
-    /// Manage compiled artifacts and refactor workflows.
-    Compiled(compiled::CompiledArgs),
+    /// Run compiled baseline benchmark workloads (Phase 1).
+    Benchmark(benchmark::BenchmarkArgs),
     /// Configure agent harnesses (Claude Code, Codex, Gemini, ...) to use Topos.
     Install(install::InstallArgs),
     /// Remove Topos-owned entries from agent harnesses.
@@ -94,7 +94,7 @@ fn main() {
         Command::Compare(args) => compare::run(args),
         Command::Coverage(args) => coverage::run(args),
         Command::Depgraph(args) => depgraph::run(args),
-        Command::Compiled(args) => compiled::run(args),
+        Command::Benchmark(args) => benchmark::run(args),
         Command::Install(args) => install::run_install(args),
         Command::Uninstall(args) => install::run_uninstall(args),
         Command::Status(args) => install::run_status(args),
@@ -175,7 +175,6 @@ mod tests {
             "compare",
             "coverage",
             "depgraph",
-            "compiled",
             "install",
             "uninstall",
             "status",

@@ -4,6 +4,7 @@
 //! on [`crate::server::ToposServer`]; `server.rs` sums them.
 
 pub mod assess;
+pub mod benchmark;
 pub mod compare;
 pub mod coverage;
 pub mod depgraph;

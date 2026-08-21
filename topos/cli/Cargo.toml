@@ -32,8 +32,3 @@ indicatif = "0.17.11"
 console = "0.15.11"
 # Preserve comments and unrelated settings when updating `.topos.toml`.
 toml_edit = "0.22.27"
-
-[dev-dependencies]
-assert_cmd = "2.0"
-tempfile = "3.8"
-
