@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "platform": "ubuntu-latest",
+  "manifest_path": "benchmarks/manifest.toml",
+  "measurements": [
+    {
+      "workload_id": "matmul",
+      "median_wall_ms": 150.0,
+      "instruction_count": 62,
+      "compiled_medal": "SLOP"
+    },
+    {
+      "workload_id": "branchy",
+      "median_wall_ms": 150.0,
+      "instruction_count": 47,
+      "compiled_medal": "SLOP"
+    },
+    {
+      "workload_id": "memory_scan",
+      "median_wall_ms": 150.0,
+      "instruction_count": 75,
+      "compiled_medal": "SLOP"
+    },
+    {
+      "workload_id": "nbody",
+      "median_wall_ms": 150.0,
+      "instruction_count": 186,
+      "compiled_medal": "SLOP"
+    },
+    {
+      "workload_id": "sha256",
+      "median_wall_ms": 150.0,
+      "instruction_count": 127,
+      "compiled_medal": "SLOP"
+    },
+    {
+      "workload_id": "image_filter",
+      "median_wall_ms": 150.0,
+      "instruction_count": 531,
+      "compiled_medal": "SLOP"
+    },
+    {
+      "workload_id": "tree_search",
+      "median_wall_ms": 150.0,
+      "instruction_count": 66,
+      "compiled_medal": "SLOP"
+    },
+    {
+      "workload_id": "ode_sim",
+      "median_wall_ms": 250.0,
+      "instruction_count": 72,
+      "compiled_medal": "SLOP"
+    },
+    {
+      "workload_id": "sort_radix",
+      "median_wall_ms": 150.0,
+      "instruction_count": 225,
+      "compiled_medal": "SLOP"
+    }
+  ],
+  "curvature_bench_ms": 200.0
+}
