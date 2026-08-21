@@ -14,6 +14,6 @@ fn benchmark_workloads_end_to_end() {
     let temp = std::env::temp_dir().join(format!("topos_bench_{}", std::process::id()));
     let runner = BenchmarkRunner::new(&temp).expect("runner");
     let result = runner.run_manifest(&manifest).expect("suite");
-    assert_eq!(result.measurements.len(), 3);
+    assert_eq!(result.measurements.len(), manifest.workload.len());
     let _ = std::fs::remove_dir_all(temp);
 }

@@ -1,0 +1,62 @@
+# Topos compiled-loop benchmark manifest.
+# Consumed by topos_engine::benchmarks::manifest.
+
+[defaults]
+compile_flags = ["-O2", "-std=c11"]
+warmup_runs = 1
+measure_runs = 5
+timeout_secs = 60
+
+[[workload]]
+id = "matmul"
+source = "workloads/matmul.c"
+description = "Dense matrix multiply — compute and memory locality"
+args = ["256"]
+
+[[workload]]
+id = "branchy"
+source = "workloads/branchy.c"
+description = "Branch-heavy pseudorandom walk"
+args = ["5000000"]
+
+[[workload]]
+id = "memory_scan"
+source = "workloads/memory_scan.c"
+description = "Sequential memory scan over a large buffer"
+args = ["16777216"]
+
+[[workload]]
+id = "nbody"
+source = "workloads/nbody.c"
+description = "Gravitational N-body simulation — floating-point SIMD"
+args = ["200", "100"]
+
+[[workload]]
+id = "sha256"
+source = "workloads/sha256.c"
+description = "SHA-256 block hashing — bitwise transforms and unrolling"
+args = ["50000"]
+
+[[workload]]
+id = "image_filter"
+source = "workloads/image_filter.c"
+description = "2D image 5x5 convolution — spatial locality and loop tiling"
+args = ["512", "512", "10"]
+
+[[workload]]
+id = "tree_search"
+source = "workloads/tree_search.c"
+description = "Binary tree insertion and traversal — pointer chasing and branch prediction"
+args = ["10000", "200000"]
+
+[[workload]]
+id = "ode_sim"
+source = "workloads/ode_sim.c"
+description = "4th-order Runge-Kutta ODE numerical simulation"
+args = ["5000000"]
+
+[[workload]]
+id = "sort_radix"
+source = "workloads/sort_radix.c"
+description = "Radix sort over integer buffers — memory passes and cache partitioning"
+args = ["1000000"]
