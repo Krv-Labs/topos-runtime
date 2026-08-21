@@ -36,3 +36,4 @@ pub mod evaluation;
 pub mod functors;
 pub mod graphs;
 pub mod optimization;
+pub mod paths;
