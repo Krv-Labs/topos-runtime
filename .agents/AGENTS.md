@@ -26,6 +26,8 @@
 3. Register the new metric(s) in `GATE_SPECS`/`PILLAR_METRIC_PREFIXES` (`topos/engine/src/evaluation/policies/gates.rs`) so gating and prose interpretation pick them up.
 4. (Optional) Add pairwise comparison under `topos/engine/src/functors/profunctors/<name>/`.
 
+**Ω_bitcode is a separate parallel lattice.** SPEED / SIZE / ENERGY / LOCALITY live under `evaluation/policies/compiled/` and `optimization/`. Do **not** register bitcode or compiled metrics in `GATE_SPECS` / `PILLAR_METRIC_PREFIXES` — those tables drive SIMPLE / COMPOSABLE / SECURE / NAVIGABLE only. LOCALITY is rendered as MEMORY FOOTPRINT. ENERGY is permanently Unmeasured. See [`docs/decisions/v0.1.0-topos-runtime-compiled-loop.md`](../docs/decisions/v0.1.0-topos-runtime-compiled-loop.md).
+
 **To Add a Generator to $\Omega$** (rarer — last done for `NAVIGABLE`): bump `GENERATOR_COUNT` in `core/omega.rs` (`OMEGA_SIZE` and the medal banding follow from it), add the variant to `Generator`, `Priority` and `score_floor`, add a `policies/<name>.rs` translator, wire it into `CharacteristicMorphism`, and widen the preference ranking. **This is a breaking change**: `IDEAL` gains a requirement, medals re-grade, and every schema carrying a verdict or ranking changes shape.
 
 ## CLI & Dev Commands
@@ -43,6 +45,8 @@ topos compare <path1> <path2>                         # Structural distance
 topos coverage --put <path1> --test <path2>           # UAST test coverage
 topos depgraph generate [--force]                     # GitNexus generation
 topos mcp                                             # Launch MCP server over stdio
+topos benchmark                                       # Measured C workload baseline (not the optimizer)
+topos compiled plan|approve|apply|rollback            # Compiled-binary optimizer (approve is CLI-only)
 ```
 `--priority` accepts either a single pillar (`simple`/`composable`/`secure`/`navigable`) or a full comma-separated ranking of **all four**, and `topos config set` writes the same value to `.topos.toml` under one `priority` key. MCP exposes the equivalent via the `preferences` parameter (see below).
 
@@ -76,8 +80,8 @@ The order is always carried by **`UserPreferences`**, never by `Priority` itself
 
 ## MCP Server (`topos-mcp`)
 Exposes tools, resources, and prompts for agent workflows:
-- **Tools**: `topos_evaluate_code`, `topos_evaluate_file`, `topos_evaluate_project`, `topos_compare_code`, `topos_compare_files`, `topos_assess_improvement` (anti-gaming), `topos_assess_worktree_change` (edit-in-place vs a git ref), `topos_begin_refactor` + `topos_assess_snapshot` (edit-in-place vs a captured baseline), `topos_assess_changeset`, `topos_inspect_code`, `topos_preference_walk`, `topos_calculate_coverage`, `topos_depgraph_status`, `topos_generate_depgraph`, `topos_refactor`, `topos_get_doc`.
-- **Resources**: `topos://docs/agent-contract`, `topos://docs/lattice`, `topos://docs/metrics`, `topos://docs/priority`, `topos://docs/preferences`, `topos://docs/workflows`.
+- **Tools**: `topos_evaluate_code`, `topos_evaluate_file`, `topos_evaluate_project`, `topos_compare_code`, `topos_compare_files`, `topos_assess_improvement` (anti-gaming), `topos_assess_worktree_change` (edit-in-place vs a git ref), `topos_begin_refactor` + `topos_assess_snapshot` (edit-in-place vs a captured baseline), `topos_assess_changeset`, `topos_inspect_code`, `topos_preference_walk`, `topos_calculate_coverage`, `topos_depgraph_status`, `topos_generate_depgraph`, `topos_refactor`, `topos_get_doc`, `topos_benchmark`, `topos_compiled_plan`, `topos_compiled_apply`, `topos_compiled_rollback`. There is no `topos_compiled_approve` — approval is CLI-only.
+- **Resources**: `topos://docs/agent-contract`, `topos://docs/lattice`, `topos://docs/metrics`, `topos://docs/priority`, `topos://docs/preferences`, `topos://docs/workflows`, `topos://docs/compiled-agent-loop`.
 - **Prompts**: `topos_refactor_until_ideal`.
 
 ## Git History & Release Convention

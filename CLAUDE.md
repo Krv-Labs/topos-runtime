@@ -59,5 +59,5 @@ OpenWiki CLI rewrites `.github/workflows/openwiki-update.yml` on every `openwiki
 
 ### MCP docs vs OpenWiki
 
-`topos_get_doc` / `topos://docs/*` serve six embedded topics only (`agent-contract`, `lattice`, `metrics`, `preferences`, `priority`, `workflows`). Broader engineering docs live under `openwiki/` on the filesystem — they are **not** MCP resources. Agents with workspace access should read those files directly.
+`topos_get_doc` / `topos://docs/*` serve seven embedded topics (`agent-contract`, `lattice`, `metrics`, `preferences`, `priority`, `workflows`, `compiled-agent-loop`). Broader engineering docs live under `openwiki/` on the filesystem — they are **not** MCP resources. Agents with workspace access should read those files directly.
 <!-- OPENWIKI-POLICY:END -->
