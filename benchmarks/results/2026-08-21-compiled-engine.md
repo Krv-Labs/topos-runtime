@@ -44,12 +44,15 @@ All workloads were evaluated under 10 interleaved paired rounds against the `-O2
 Topos is as much about **preventing catastrophic regressions** as it is about finding speedups. In our experiments, naive flag choices produced massive slowdowns:
 
 1. **2D Image Convolution (`image_filter`) under `-Os`:**  
-   - Speed delta: **-286.53%** ($p = 0.0020 \le 0.0125$, `real_but_below_threshold`).  
-   - Why: `-Os` turns off loop vectorization and vector unrolling to save a handful of bytes, turning 10ms into 38ms.
+   - Speed delta: **-989.29%** ($p = 0.0020 \le 0.0125$, `real_but_below_threshold`).  
+   - Why: `-Os` turns off loop vectorization and vector unrolling to save a handful of bytes, turning 75ms into 800ms+.
 2. **Sequential Memory Scanning (`memory_scan`) under `-Os`:**  
-   - Speed delta: **-50.90%** ($p = 0.0020 \le 0.0125$, `real_but_below_threshold`).  
+   - Speed delta: **-111.30%** ($p = 0.0020 \le 0.0125$, `real_but_below_threshold`).  
    - Why: Memory prefetching and SIMD loads are throttled.
-3. **Cryptographic Hashing (`sha256`) under `-Os`:**  
+3. **Radix Sorting (`sort_radix`) under `pgo-O3`:**  
+   - Speed delta: **-79.61%** ($p = 0.0020 \le 0.0125$, `real_but_below_threshold`).  
+   - Why: Overfitting branch layout to training distributions causes branch predictor misses on uniform keys.
+4. **Cryptographic Hashing (`sha256`) under `-Os`:**  
    - Speed delta: **-28.45%** ($p = 0.0039 \le 0.0125$, `real_but_below_threshold`).  
    - Why: 64-step unrolled transform loop is folded back into sequential branches.
 

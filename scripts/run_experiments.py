@@ -17,13 +17,13 @@ import time
 WORKLOADS = [
     ("matmul", "benchmarks/workloads/matmul.c", ["512"]),
     ("branchy", "benchmarks/workloads/branchy.c", ["100000000"]),
-    ("memory_scan", "benchmarks/workloads/memory_scan.c", ["200000000"]),
+    ("memory_scan", "benchmarks/workloads/memory_scan.c", ["400000000"]),
     ("nbody", "benchmarks/workloads/nbody.c", ["500", "200"]),
     ("sha256", "benchmarks/workloads/sha256.c", ["500000"]),
-    ("image_filter", "benchmarks/workloads/image_filter.c", ["1024", "1024", "10"]),
+    ("image_filter", "benchmarks/workloads/image_filter.c", ["1024", "1024", "100"]),
     ("tree_search", "benchmarks/workloads/tree_search.c", ["50000", "1000000"]),
     ("ode_sim", "benchmarks/workloads/ode_sim.c", ["15000000"]),
-    ("sort_radix", "benchmarks/workloads/sort_radix.c", ["5000000"]),
+    ("sort_radix", "benchmarks/workloads/sort_radix.c", ["15000000"]),
 ]
 
 def main():
@@ -43,7 +43,7 @@ def main():
             "cargo", "run", "-q", "-p", "topos", "--",
             "compiled", "plan", src,
             "--runs", "10",
-            "--min-speedup", "2.0",
+            "--min-speedup", "1.0",
             "--max-size-increase", "50.0",
             "--out", plan_path,
             "--json",

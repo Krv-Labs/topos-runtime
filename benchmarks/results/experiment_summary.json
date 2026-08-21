@@ -7,16 +7,16 @@
     ],
     "promoted": null,
     "report": {
-      "run_id": "20260821T181610Z-79ee6234",
-      "plan_digest": "79ee6234df9392b2638b33664cd019e6",
+      "run_id": "20260821T190939Z-fa1fb7ec",
+      "plan_digest": "fa1fb7eca30dff4d862df2fb3f93fd9a",
       "baseline_variant": "O2",
       "baseline_bytes": 33576,
       "candidates": [
         {
           "id": "c01",
           "variant": "O3",
-          "speedup_pct": 1.3312562483071364,
-          "p_value": 0.33203125,
+          "speedup_pct": -5.370002483913162,
+          "p_value": 0.693359375,
           "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33576,
@@ -26,8 +26,8 @@
         {
           "id": "c02",
           "variant": "Os",
-          "speedup_pct": -8.747726196587575,
-          "p_value": 0.1796875,
+          "speedup_pct": -2.6295511733613597,
+          "p_value": 0.08203125,
           "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33576,
@@ -37,9 +37,9 @@
         {
           "id": "c03",
           "variant": "lto",
-          "speedup_pct": 2.724750343968023,
-          "p_value": 0.107421875,
-          "noise": "within_noise",
+          "speedup_pct": -1.5968188640817893,
+          "p_value": 0.501953125,
+          "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33576,
           "speed_satisfied": false,
@@ -48,8 +48,8 @@
         {
           "id": "c04",
           "variant": "pgo-O3",
-          "speedup_pct": -3.9027025695214457,
-          "p_value": 0.41796875,
+          "speedup_pct": -0.066793974909585,
+          "p_value": 0.818359375,
           "noise": "no_effect",
           "size_increase_pct": 0.09530617107457708,
           "binary_size_bytes": 33608,
@@ -68,18 +68,18 @@
     "args": [
       "100000000"
     ],
-    "promoted": "/Users/jeremywayland/krv/open-source/topos-runtime/branchy",
+    "promoted": null,
     "report": {
-      "run_id": "20260821T181628Z-e5a9d2e2",
-      "plan_digest": "e5a9d2e2130ff60103b24aaf59c1b7af",
+      "run_id": "20260821T190957Z-e8f14ac4",
+      "plan_digest": "e8f14ac43cd7365a84edb99886f9be42",
       "baseline_variant": "O2",
       "baseline_bytes": 33432,
       "candidates": [
         {
           "id": "c01",
           "variant": "O3",
-          "speedup_pct": -12.175749266565743,
-          "p_value": 0.302734375,
+          "speedup_pct": -2.224676263055115,
+          "p_value": 0.548828125,
           "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33432,
@@ -89,8 +89,8 @@
         {
           "id": "c02",
           "variant": "Os",
-          "speedup_pct": -4.647407546248812,
-          "p_value": 0.15625,
+          "speedup_pct": -1.1673438404326784,
+          "p_value": 0.29296875,
           "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33432,
@@ -100,9 +100,9 @@
         {
           "id": "c03",
           "variant": "lto",
-          "speedup_pct": -7.173909735833618,
-          "p_value": 0.52734375,
-          "noise": "no_effect",
+          "speedup_pct": 1.26077671436169,
+          "p_value": 0.41015625,
+          "noise": "within_noise",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33432,
           "speed_satisfied": false,
@@ -111,17 +111,17 @@
         {
           "id": "c04",
           "variant": "pgo-O3",
-          "speedup_pct": 8.41119756413617,
-          "p_value": 0.005859375,
-          "noise": "real",
+          "speedup_pct": 0.7739436922172073,
+          "p_value": 0.458984375,
+          "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33432,
-          "speed_satisfied": true,
+          "speed_satisfied": false,
           "size_satisfied": true
         }
       ],
-      "winner": "c04",
-      "medal": "GOLD",
+      "winner": null,
+      "medal": "SILVER",
       "medal_ceiling": "GOLD"
     }
   },
@@ -129,21 +129,21 @@
     "workload_id": "memory_scan",
     "source": "benchmarks/workloads/memory_scan.c",
     "args": [
-      "200000000"
+      "400000000"
     ],
     "promoted": null,
     "report": {
-      "run_id": "20260821T181646Z-33a7fd21",
-      "plan_digest": "33a7fd21a99a100deda0ebfc3bf983ae",
+      "run_id": "20260821T191014Z-5a95170e",
+      "plan_digest": "5a95170ebbf955da56c981d6f5a50ce6",
       "baseline_variant": "O2",
       "baseline_bytes": 33560,
       "candidates": [
         {
           "id": "c01",
           "variant": "O3",
-          "speedup_pct": 0.0,
-          "p_value": null,
-          "noise": "workload_too_short",
+          "speedup_pct": 2.8422536324198906,
+          "p_value": 0.6640625,
+          "noise": "within_noise",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33560,
           "speed_satisfied": false,
@@ -152,7 +152,7 @@
         {
           "id": "c02",
           "variant": "Os",
-          "speedup_pct": -50.90191418636317,
+          "speedup_pct": -111.3000386815044,
           "p_value": 0.001953125,
           "noise": "real_but_below_threshold",
           "size_increase_pct": 0.0,
@@ -163,9 +163,9 @@
         {
           "id": "c03",
           "variant": "lto",
-          "speedup_pct": 0.0,
-          "p_value": null,
-          "noise": "workload_too_short",
+          "speedup_pct": -3.487687204821878,
+          "p_value": 0.33984375,
+          "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33560,
           "speed_satisfied": false,
@@ -174,9 +174,9 @@
         {
           "id": "c04",
           "variant": "pgo-O3",
-          "speedup_pct": 0.0,
-          "p_value": null,
-          "noise": "workload_too_short",
+          "speedup_pct": -0.1674647376115014,
+          "p_value": 0.333984375,
+          "noise": "no_effect",
           "size_increase_pct": 0.04767580452920143,
           "binary_size_bytes": 33576,
           "speed_satisfied": false,
@@ -185,7 +185,7 @@
       ],
       "winner": null,
       "medal": "SILVER",
-      "medal_ceiling": "SILVER"
+      "medal_ceiling": "GOLD"
     }
   },
   {
@@ -195,18 +195,18 @@
       "500",
       "200"
     ],
-    "promoted": "/Users/jeremywayland/krv/open-source/topos-runtime/nbody",
+    "promoted": null,
     "report": {
-      "run_id": "20260821T181656Z-86442b91",
-      "plan_digest": "86442b9129df9fc1d01c5dcdfd0eb4ce",
+      "run_id": "20260821T191027Z-8e2560a0",
+      "plan_digest": "8e2560a0681a3c3bd80d01cbb235042b",
       "baseline_variant": "O2",
       "baseline_bytes": 33512,
       "candidates": [
         {
           "id": "c01",
           "variant": "O3",
-          "speedup_pct": -0.4913163134646203,
-          "p_value": 0.76953125,
+          "speedup_pct": 0.013289401190870844,
+          "p_value": 0.802734375,
           "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33512,
@@ -216,19 +216,19 @@
         {
           "id": "c02",
           "variant": "Os",
-          "speedup_pct": 3.381782915645035,
-          "p_value": 0.005859375,
-          "noise": "real",
+          "speedup_pct": 4.0384094890418005,
+          "p_value": 0.015625,
+          "noise": "within_noise",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33512,
-          "speed_satisfied": true,
+          "speed_satisfied": false,
           "size_satisfied": true
         },
         {
           "id": "c03",
           "variant": "lto",
-          "speedup_pct": -1.8728964064880143,
-          "p_value": 0.755859375,
+          "speedup_pct": 0.860952763892774,
+          "p_value": 0.75390625,
           "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33512,
@@ -238,8 +238,8 @@
         {
           "id": "c04",
           "variant": "pgo-O3",
-          "speedup_pct": -2.3792495956379485,
-          "p_value": 0.138671875,
+          "speedup_pct": 0.36010637299114207,
+          "p_value": 0.751953125,
           "noise": "no_effect",
           "size_increase_pct": 0.095488183337312,
           "binary_size_bytes": 33544,
@@ -247,8 +247,8 @@
           "size_satisfied": true
         }
       ],
-      "winner": "c02",
-      "medal": "GOLD",
+      "winner": null,
+      "medal": "SILVER",
       "medal_ceiling": "GOLD"
     }
   },
@@ -260,17 +260,17 @@
     ],
     "promoted": null,
     "report": {
-      "run_id": "20260821T181711Z-d4d4265c",
-      "plan_digest": "d4d4265cfab2b5a23ba12c2721dd9b9a",
+      "run_id": "20260821T191042Z-8d69f4cd",
+      "plan_digest": "8d69f4cde635ad82b7811a9200e8f53f",
       "baseline_variant": "O2",
       "baseline_bytes": 33576,
       "candidates": [
         {
           "id": "c01",
           "variant": "O3",
-          "speedup_pct": 2.330927140878356,
-          "p_value": 0.302734375,
-          "noise": "within_noise",
+          "speedup_pct": -0.40445669470505113,
+          "p_value": 0.85546875,
+          "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33576,
           "speed_satisfied": false,
@@ -279,9 +279,9 @@
         {
           "id": "c02",
           "variant": "Os",
-          "speedup_pct": -28.44587141505417,
-          "p_value": 0.00390625,
-          "noise": "real_but_below_threshold",
+          "speedup_pct": -3.7424007888604462,
+          "p_value": 0.05078125,
+          "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33576,
           "speed_satisfied": false,
@@ -290,8 +290,8 @@
         {
           "id": "c03",
           "variant": "lto",
-          "speedup_pct": -2.350264996128612,
-          "p_value": 0.25390625,
+          "speedup_pct": -11.863632722855447,
+          "p_value": 0.455078125,
           "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33576,
@@ -301,9 +301,9 @@
         {
           "id": "c04",
           "variant": "pgo-O3",
-          "speedup_pct": 21.88280676065032,
-          "p_value": 0.0234375,
-          "noise": "within_noise",
+          "speedup_pct": 0.5027357064948902,
+          "p_value": 0.60546875,
+          "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33576,
           "speed_satisfied": false,
@@ -321,21 +321,21 @@
     "args": [
       "1024",
       "1024",
-      "10"
+      "100"
     ],
     "promoted": null,
     "report": {
-      "run_id": "20260821T181725Z-26df6a08",
-      "plan_digest": "26df6a08895018d91e06525746394a23",
+      "run_id": "20260821T191057Z-e9b82d53",
+      "plan_digest": "e9b82d53d7171c18bf6a3eaeeed92a10",
       "baseline_variant": "O2",
       "baseline_bytes": 33544,
       "candidates": [
         {
           "id": "c01",
           "variant": "O3",
-          "speedup_pct": 0.0,
-          "p_value": null,
-          "noise": "workload_too_short",
+          "speedup_pct": -3.557916229618657,
+          "p_value": 0.291015625,
+          "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33544,
           "speed_satisfied": false,
@@ -344,7 +344,7 @@
         {
           "id": "c02",
           "variant": "Os",
-          "speedup_pct": -286.5265530016372,
+          "speedup_pct": -989.2862213449794,
           "p_value": 0.001953125,
           "noise": "real_but_below_threshold",
           "size_increase_pct": 0.09539709038874314,
@@ -355,9 +355,9 @@
         {
           "id": "c03",
           "variant": "lto",
-          "speedup_pct": 0.0,
-          "p_value": null,
-          "noise": "workload_too_short",
+          "speedup_pct": -1.6556248507016473,
+          "p_value": 0.91796875,
+          "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33544,
           "speed_satisfied": false,
@@ -366,18 +366,18 @@
         {
           "id": "c04",
           "variant": "pgo-O3",
-          "speedup_pct": 0.0,
-          "p_value": null,
-          "noise": "workload_too_short",
-          "size_increase_pct": 0.09539709038874314,
-          "binary_size_bytes": 33576,
+          "speedup_pct": -1.9457754849731885,
+          "p_value": 0.53515625,
+          "noise": "no_effect",
+          "size_increase_pct": 0.0,
+          "binary_size_bytes": 33544,
           "speed_satisfied": false,
           "size_satisfied": true
         }
       ],
       "winner": null,
       "medal": "SILVER",
-      "medal_ceiling": "SILVER"
+      "medal_ceiling": "GOLD"
     }
   },
   {
@@ -389,16 +389,16 @@
     ],
     "promoted": null,
     "report": {
-      "run_id": "20260821T181734Z-c4895a8b",
-      "plan_digest": "c4895a8bc10e71ad4ae2872fc0a15c54",
+      "run_id": "20260821T191119Z-4f314e8f",
+      "plan_digest": "4f314e8f12547042312cb234ab35f056",
       "baseline_variant": "O2",
       "baseline_bytes": 33560,
       "candidates": [
         {
           "id": "c01",
           "variant": "O3",
-          "speedup_pct": 0.33976096647917575,
-          "p_value": 0.71484375,
+          "speedup_pct": -1.3490666267006495,
+          "p_value": 0.880859375,
           "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33560,
@@ -408,8 +408,8 @@
         {
           "id": "c02",
           "variant": "Os",
-          "speedup_pct": 0.7884170890721437,
-          "p_value": 0.794921875,
+          "speedup_pct": -0.040350161974026966,
+          "p_value": 0.62890625,
           "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33560,
@@ -419,8 +419,8 @@
         {
           "id": "c03",
           "variant": "lto",
-          "speedup_pct": -1.2850863698036123,
-          "p_value": 0.76171875,
+          "speedup_pct": -1.4778706446010867,
+          "p_value": 0.572265625,
           "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33560,
@@ -430,9 +430,9 @@
         {
           "id": "c04",
           "variant": "pgo-O3",
-          "speedup_pct": 3.2086268216734486,
-          "p_value": 0.171875,
-          "noise": "within_noise",
+          "speedup_pct": 0.1618253513275687,
+          "p_value": 0.560546875,
+          "noise": "no_effect",
           "size_increase_pct": 0.09535160905840286,
           "binary_size_bytes": 33592,
           "speed_satisfied": false,
@@ -452,17 +452,17 @@
     ],
     "promoted": null,
     "report": {
-      "run_id": "20260821T181748Z-db4fa841",
-      "plan_digest": "db4fa841ac9891905aa40a224f243bfa",
+      "run_id": "20260821T191134Z-b9d259fc",
+      "plan_digest": "b9d259fc8a83854a510e4018bc744ee2",
       "baseline_variant": "O2",
       "baseline_bytes": 33432,
       "candidates": [
         {
           "id": "c01",
           "variant": "O3",
-          "speedup_pct": 4.5137788876580345,
-          "p_value": 0.384765625,
-          "noise": "within_noise",
+          "speedup_pct": -1.1910077069912623,
+          "p_value": 0.826171875,
+          "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33432,
           "speed_satisfied": false,
@@ -471,9 +471,9 @@
         {
           "id": "c02",
           "variant": "Os",
-          "speedup_pct": 5.545098509213696,
-          "p_value": 0.4765625,
-          "noise": "within_noise",
+          "speedup_pct": -0.345814612135665,
+          "p_value": 0.689453125,
+          "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33432,
           "speed_satisfied": false,
@@ -482,8 +482,8 @@
         {
           "id": "c03",
           "variant": "lto",
-          "speedup_pct": -1.5122280883166266,
-          "p_value": 0.994140625,
+          "speedup_pct": -1.5020263718988494,
+          "p_value": 0.4296875,
           "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33432,
@@ -493,8 +493,8 @@
         {
           "id": "c04",
           "variant": "pgo-O3",
-          "speedup_pct": -1.9375454867500461,
-          "p_value": 0.419921875,
+          "speedup_pct": -1.0308365670858004,
+          "p_value": 0.908203125,
           "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33432,
@@ -511,21 +511,21 @@
     "workload_id": "sort_radix",
     "source": "benchmarks/workloads/sort_radix.c",
     "args": [
-      "5000000"
+      "15000000"
     ],
     "promoted": null,
     "report": {
-      "run_id": "20260821T181809Z-7fddecea",
-      "plan_digest": "7fddeceae3dbcd5b057279e2f88334f2",
+      "run_id": "20260821T191156Z-f26c1d38",
+      "plan_digest": "f26c1d38d06bc79eb5a130cfd247c41e",
       "baseline_variant": "O2",
       "baseline_bytes": 33736,
       "candidates": [
         {
           "id": "c01",
           "variant": "O3",
-          "speedup_pct": 0.0,
-          "p_value": null,
-          "noise": "workload_too_short",
+          "speedup_pct": 1.4086627104477587,
+          "p_value": 0.669921875,
+          "noise": "within_noise",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33736,
           "speed_satisfied": false,
@@ -534,9 +534,9 @@
         {
           "id": "c02",
           "variant": "Os",
-          "speedup_pct": 0.0,
-          "p_value": null,
-          "noise": "workload_too_short",
+          "speedup_pct": 9.643127324976811,
+          "p_value": 0.65234375,
+          "noise": "within_noise",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33736,
           "speed_satisfied": false,
@@ -545,9 +545,9 @@
         {
           "id": "c03",
           "variant": "lto",
-          "speedup_pct": 0.0,
-          "p_value": null,
-          "noise": "workload_too_short",
+          "speedup_pct": 0.021380084912567876,
+          "p_value": 0.8671875,
+          "noise": "no_effect",
           "size_increase_pct": 0.0,
           "binary_size_bytes": 33736,
           "speed_satisfied": false,
@@ -556,9 +556,9 @@
         {
           "id": "c04",
           "variant": "pgo-O3",
-          "speedup_pct": 0.0,
-          "p_value": null,
-          "noise": "workload_too_short",
+          "speedup_pct": -79.60687563128303,
+          "p_value": 0.001953125,
+          "noise": "real_but_below_threshold",
           "size_increase_pct": 0.8062603746739389,
           "binary_size_bytes": 34008,
           "speed_satisfied": false,
@@ -567,7 +567,7 @@
       ],
       "winner": null,
       "medal": "SILVER",
-      "medal_ceiling": "SILVER"
+      "medal_ceiling": "GOLD"
     }
   }
 ]

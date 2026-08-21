@@ -184,8 +184,9 @@ Measured across 9 real-world algorithmic, numerical, and structural workloads. E
 
 | Workload | Naive Flag Choice | Speed Regression | Detected $p$-value | Topos Action |
 | :--- | :--- | --: | --: | :--- |
-| `image_filter` | `-Os` (size optimization) | **-286.53%** | $p = 0.0020$ | **BLOCKED** (`real_but_below_threshold`) |
-| `memory_scan` | `-Os` (size optimization) | **-50.90%** | $p = 0.0020$ | **BLOCKED** (`real_but_below_threshold`) |
+| `image_filter` | `-Os` (size optimization) | **-989.29%** | $p = 0.0020$ | **BLOCKED** (`real_but_below_threshold`) |
+| `memory_scan` | `-Os` (size optimization) | **-111.30%** | $p = 0.0020$ | **BLOCKED** (`real_but_below_threshold`) |
+| `sort_radix` | `pgo-O3` (profile layout) | **-79.61%** | $p = 0.0020$ | **BLOCKED** (`real_but_below_threshold`) |
 | `sha256` | `-Os` (size optimization) | **-28.45%** | $p = 0.0039$ | **BLOCKED** (`real_but_below_threshold`) |
 
 Full methodology, raw JSON data, and reproduction: [benchmarks/results/2026-08-21-compiled-engine.md](benchmarks/results/2026-08-21-compiled-engine.md).
