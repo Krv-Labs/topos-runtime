@@ -20,6 +20,7 @@ tree-sitter-go = "0.23"
 blake2 = "0.10"
 petgraph = "0.6"
 # GraphNode::properties holds arbitrary GitNexus JSON payload values.
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 flate2 = "1.0"
 # .topos.toml allowlist parsing (evaluation::suppression / config).
@@ -27,3 +28,10 @@ toml = "0.8"
 # LadybugDB native client for COMPOSABLE binary stores (issue #198).
 # Pin to the GitNexus 1.6.x band (ladybug 0.17.x).
 lbug = "=0.17.1"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "curvature"
+harness = false

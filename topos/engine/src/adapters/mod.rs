@@ -23,5 +23,9 @@
 
 mod process;
 
+pub(crate) use process::{run_with_timeout, RunError};
+
 pub mod discovery;
 pub mod gitnexus;
+pub mod llvm;
+pub mod timing;

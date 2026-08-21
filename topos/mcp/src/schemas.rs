@@ -654,13 +654,14 @@ pub enum DocTopic {
     Preferences,
     Priority,
     Workflows,
+    CompiledAgentLoop,
 }
 
 /// Arguments for `topos_get_doc`.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GetDocInput {
-    /// agent-contract | lattice | metrics | preferences | priority | workflows
+    /// agent-contract | lattice | metrics | preferences | priority | workflows | compiled-agent-loop
     pub topic: DocTopic,
 }
 
@@ -1344,6 +1345,112 @@ pub struct RefactorResult {
     pub tool_available: Option<bool>,
     pub hotspots: Vec<RefactorHotspot>,
     pub error: Option<String>,
+}
+
+/// Arguments for `topos_benchmark`.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompiledBenchmarkInput {
+    #[serde(default)]
+    pub manifest_path: Option<String>,
+    #[serde(default)]
+    pub compare_baseline: Option<String>,
+    #[serde(default)]
+    pub tolerance_pct: Option<f64>,
+    #[serde(default)]
+    pub write_baseline: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CompiledBenchmarkResult {
+    pub manifest_path: String,
+    pub measurements: Vec<CompiledBenchmarkMeasurement>,
+    pub baseline_violations: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CompiledBenchmarkMeasurement {
+    pub workload_id: String,
+    pub median_wall_ms: f64,
+    pub instruction_count: u64,
+    pub compiled_medal: String,
+    pub binary_size_bytes: u64,
+}
+
+/// Arguments for `topos_compiled_plan`.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompiledPlanInput {
+    pub target: String,
+    #[serde(default)]
+    pub variants: Option<Vec<String>>,
+    #[serde(default)]
+    pub min_speedup: Option<f64>,
+    #[serde(default)]
+    pub max_size_increase: Option<f64>,
+    #[serde(default)]
+    pub runs: Option<u32>,
+    #[serde(default)]
+    pub warmup: Option<u32>,
+    #[serde(default)]
+    pub run_args: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct CompiledVariantProbe {
+    pub id: String,
+    pub buildable: bool,
+    pub reason: String,
+    pub build_command: Vec<String>,
+    pub run_command: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct CompiledPlanResult {
+    pub digest: String,
+    pub plan: String,
+    pub variants: Vec<CompiledVariantProbe>,
+    pub next_step: String,
+}
+
+/// Arguments for `topos_compiled_apply`.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompiledApplyInput {
+    pub plan_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct CompiledCandidateRow {
+    pub id: String,
+    pub variant: String,
+    pub speedup_pct: f64,
+    pub noise: String,
+    pub speed_satisfied: bool,
+    pub size_satisfied: bool,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct CompiledApplyResult {
+    pub run_id: String,
+    pub promoted: Option<String>,
+    pub message: String,
+    pub candidates: Vec<CompiledCandidateRow>,
+}
+
+/// Arguments for `topos_compiled_rollback`.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompiledRollbackInput {
+    pub project_root: String,
+    #[serde(default)]
+    pub run_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct CompiledRollbackResult {
+    pub bytes_restored: u64,
+    pub verified: bool,
 }
 
 #[cfg(test)]

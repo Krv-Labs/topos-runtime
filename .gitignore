@@ -265,3 +265,6 @@ __marimo__/
 mempalace.yaml
 entities.json
 docs/source/_build
+
+# Compiled-optimizer run artifacts
+.topos/compiled/

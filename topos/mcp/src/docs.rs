@@ -14,6 +14,7 @@ pub const METRICS: &str = include_str!("../docs/content/metrics.md");
 pub const PREFERENCES: &str = include_str!("../docs/content/preferences.md");
 pub const PRIORITY: &str = include_str!("../docs/content/priority.md");
 pub const WORKFLOWS: &str = include_str!("../docs/content/workflows.md");
+pub const COMPILED_AGENT_LOOP: &str = include_str!("../docs/content/compiled-agent-loop.md");
 
 /// Content for a documentation topic.
 pub fn doc_content(topic: DocTopic) -> &'static str {
@@ -24,6 +25,7 @@ pub fn doc_content(topic: DocTopic) -> &'static str {
         DocTopic::Preferences => PREFERENCES,
         DocTopic::Priority => PRIORITY,
         DocTopic::Workflows => WORKFLOWS,
+        DocTopic::CompiledAgentLoop => COMPILED_AGENT_LOOP,
     }
 }
 
@@ -37,18 +39,20 @@ pub fn doc_content_for_slug(slug: &str) -> Option<&'static str> {
         "preferences" => Some(PREFERENCES),
         "priority" => Some(PRIORITY),
         "workflows" => Some(WORKFLOWS),
+        "compiled-agent-loop" => Some(COMPILED_AGENT_LOOP),
         _ => None,
     }
 }
 
-/// The six resource slugs, in listing order.
-pub const DOC_SLUGS: [&str; 6] = [
+/// The seven resource slugs, in listing order.
+pub const DOC_SLUGS: [&str; 7] = [
     "agent-contract",
     "lattice",
     "metrics",
     "priority",
     "preferences",
     "workflows",
+    "compiled-agent-loop",
 ];
 
 /// Guards that the agent-visible prose stays consistent with the tool surface

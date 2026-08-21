@@ -29,8 +29,11 @@
 //!   consumed by [`evaluation::suppression`].
 
 pub mod adapters;
+pub mod benchmarks;
 pub mod config;
 pub mod core;
 pub mod evaluation;
 pub mod functors;
 pub mod graphs;
+pub mod optimization;
+pub mod paths;

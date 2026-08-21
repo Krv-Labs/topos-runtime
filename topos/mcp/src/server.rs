@@ -3,7 +3,7 @@
 //! Server name follows the `{service}_mcp` convention. Transport is stdio
 //! by default; the `topos-mcp` binary (see `main.rs`) launches [`serve`].
 //!
-//! The ten tool modules under [`crate::tools`] each contribute a named
+//! The tool modules under [`crate::tools`] each contribute a named
 //! `#[tool_router]` (e.g. `evaluate_router`, `assess_router`); they are
 //! summed here into one [`ToolRouter`]. Resources (`topos://docs/*`) and
 //! the `topos_refactor_until_ideal` prompt are implemented directly in the
@@ -87,7 +87,9 @@ impl ToposServer {
             + Self::docs_router()
             + Self::inspect_router()
             + Self::preferences_router()
-            + Self::refactor_router();
+            + Self::refactor_router()
+            + Self::benchmark_router()
+            + Self::compiled_router();
         ToposServer { tool_router }
     }
 
@@ -134,6 +136,9 @@ fn doc_description(slug: &str) -> &'static str {
         "agent-contract" => {
             "Compact outcome-first contract for agent loops: targets, gates, risks, and \
              next-tool fields."
+        }
+        "compiled-agent-loop" => {
+            "Measured compiled-binary optimizer: clang flags + PGO, CLI-only approve, apply/rollback."
         }
         "lattice" => {
             "The 16-element H(G_qual) over {SIMPLE, COMPOSABLE, SECURE, NAVIGABLE}; bottom = SLOP, \

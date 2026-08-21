@@ -12,15 +12,22 @@ use std::io::IsTerminal;
 use clap::{Parser, Subcommand};
 use console::Style;
 
-use commands::{compare, config, coverage, depgraph, evaluate, inspect, install, mcp};
+use commands::{
+    benchmark, compare, compiled, config, coverage, depgraph, evaluate, inspect, install, mcp,
+};
 
-const ROOT_COMMANDS: [(&str, &str); 10] = [
+const ROOT_COMMANDS: [(&str, &str); 12] = [
     ("evaluate", "Score a file or directory"),
     ("inspect", "Explain one file"),
     ("config", "Set project priorities"),
     ("compare", "Compare two files"),
     ("coverage", "Compare source structure with tests"),
     ("depgraph", "Build the COMPOSABLE graph"),
+    ("benchmark", "Run compiled baseline benchmark workloads"),
+    (
+        "compiled",
+        "Plan, approve, apply, or roll back binary optimizations",
+    ),
     ("install", "Configure agent harnesses to use Topos"),
     ("uninstall", "Remove Topos from agent harnesses"),
     ("status", "Show which harnesses are configured"),
@@ -57,6 +64,10 @@ enum Command {
     Coverage(coverage::CoverageArgs),
     /// Build the GitNexus graph used by COMPOSABLE.
     Depgraph(depgraph::DepgraphArgs),
+    /// Run compiled baseline benchmark workloads (Phase 1).
+    Benchmark(benchmark::BenchmarkArgs),
+    /// Plan, approve, apply, or roll back compiled-binary optimizations.
+    Compiled(compiled::CompiledArgs),
     /// Configure agent harnesses (Claude Code, Codex, Gemini, ...) to use Topos.
     Install(install::InstallArgs),
     /// Remove Topos-owned entries from agent harnesses.
@@ -91,6 +102,8 @@ fn main() {
         Command::Compare(args) => compare::run(args),
         Command::Coverage(args) => coverage::run(args),
         Command::Depgraph(args) => depgraph::run(args),
+        Command::Benchmark(args) => benchmark::run(args),
+        Command::Compiled(args) => compiled::run(args),
         Command::Install(args) => install::run_install(args),
         Command::Uninstall(args) => install::run_uninstall(args),
         Command::Status(args) => install::run_status(args),
@@ -171,6 +184,8 @@ mod tests {
             "compare",
             "coverage",
             "depgraph",
+            "benchmark",
+            "compiled",
             "install",
             "uninstall",
             "status",
@@ -188,7 +203,7 @@ mod tests {
         let styled = root_help(true);
         assert!(styled.contains("\u{1b}[1mCommands\u{1b}[0m"));
         assert!(styled.contains("\u{1b}[2mScore a file or directory\u{1b}[0m"));
-        assert_eq!(ROOT_COMMANDS.len(), 10);
+        assert_eq!(ROOT_COMMANDS.len(), 12);
     }
 
     #[test]

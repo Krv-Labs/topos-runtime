@@ -7,6 +7,7 @@
 
 pub mod ast;
 pub mod base;
+pub mod bitcode;
 pub mod cfg;
 pub mod cpg;
 pub mod mdg;

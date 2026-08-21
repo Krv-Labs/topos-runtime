@@ -63,6 +63,21 @@ impl AllowEntry {
     }
 }
 
+/// `[compiled]` block: how to build and run a real binary.
+///
+/// `timeout_ms` is `u64` so [`ToposConfig`] can keep `Eq` (existing tests
+/// `assert_eq!` on the whole struct). `measured_runs` must be 6..=20 — fewer
+/// than 6 can never be significant at α = 0.05, and silently clamping would
+/// double a user's runtime without saying so.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompiledConfig {
+    pub build_command: Vec<String>,
+    pub run_command: Vec<String>,
+    pub warmup_runs: u32,
+    pub measured_runs: u32,
+    pub timeout_ms: u64,
+}
+
 /// Resolved project configuration.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ToposConfig {
@@ -73,6 +88,14 @@ pub struct ToposConfig {
     pub preferences: Option<[Generator; RANKING_LEN]>,
     /// Directory the `.topos.toml` lives in (scope base for `entries_for`).
     pub root: Option<PathBuf>,
+    /// Parsed `[compiled]` block. `None` when absent *or* when
+    /// [`Self::compiled_error`] is set.
+    pub compiled: Option<CompiledConfig>,
+    /// Why `[compiled]` was rejected. Deliberate exception to this file's
+    /// best-effort contract: silently degrading a malformed block to `None`
+    /// would run the fast path against the wrong target and report it as
+    /// the user's project.
+    pub compiled_error: Option<String>,
 }
 
 impl ToposConfig {
@@ -134,18 +157,14 @@ pub fn load_topos_config(start: &Path) -> ToposConfig {
 
     let Ok(text) = fs::read_to_string(&config_file) else {
         return ToposConfig {
-            allow: Vec::new(),
-            priority: None,
-            preferences: None,
             root,
+            ..Default::default()
         };
     };
     let Ok(data) = text.parse::<toml::Table>() else {
         return ToposConfig {
-            allow: Vec::new(),
-            priority: None,
-            preferences: None,
             root,
+            ..Default::default()
         };
     };
 
@@ -170,11 +189,17 @@ pub fn load_topos_config(start: &Path) -> ToposConfig {
             .and_then(|table| table.get("preferences"))
             .and_then(parse_preferences)
     });
+    let (compiled, compiled_error) = match parse_compiled(&data) {
+        Ok(compiled) => (compiled, None),
+        Err(err) => (None, Some(err)),
+    };
     ToposConfig {
         allow,
         priority,
         preferences,
         root,
+        compiled,
+        compiled_error,
     }
 }
 
@@ -212,6 +237,90 @@ fn priority_for_generator(generator: Generator) -> Priority {
         Generator::Secure => Priority::Secure,
         Generator::Navigable => Priority::Navigable,
     }
+}
+
+const MIN_MEASURED_RUNS: u32 = 6;
+const MAX_MEASURED_RUNS: u32 = 20;
+const DEFAULT_WARMUP_RUNS: u32 = 2;
+const DEFAULT_MEASURED_RUNS: u32 = 10;
+const DEFAULT_TIMEOUT_MS: u64 = 60_000;
+
+fn parse_compiled(data: &toml::Table) -> Result<Option<CompiledConfig>, String> {
+    let Some(value) = data.get("compiled") else {
+        return Ok(None);
+    };
+    let table = value
+        .as_table()
+        .ok_or_else(|| "[compiled] must be a table".to_string())?;
+    let build_command = string_array(table.get("build_command"))
+        .ok_or_else(|| "[compiled].build_command must be an array of strings".to_string())?;
+    if build_command.is_empty() {
+        return Err("[compiled].build_command must not be empty".into());
+    }
+    if !build_command.iter().any(|token| token == "{flags}") {
+        return Err(
+            "[compiled].build_command must contain a `{flags}` token so variants actually differ"
+                .into(),
+        );
+    }
+    if let Some(bad) = build_command.iter().find(|token| {
+        *token != "{flags}"
+            && *token != "{profile}"
+            && *token != "{output}"
+            && (token.contains('{') || token.contains('}'))
+    }) {
+        return Err(format!(
+            "[compiled].build_command placeholder must be its own argv element, not embedded in `{bad}`"
+        ));
+    }
+    let run_command = string_array(table.get("run_command"))
+        .ok_or_else(|| "[compiled].run_command must be an array of strings".to_string())?;
+    if run_command.is_empty() {
+        return Err("[compiled].run_command must not be empty".into());
+    }
+    let warmup_runs = optional_u32(table.get("warmup_runs"), DEFAULT_WARMUP_RUNS)?;
+    let measured_runs = optional_u32(table.get("measured_runs"), DEFAULT_MEASURED_RUNS)?;
+    if !(MIN_MEASURED_RUNS..=MAX_MEASURED_RUNS).contains(&measured_runs) {
+        return Err(format!(
+            "[compiled].measured_runs must be {MIN_MEASURED_RUNS}..={MAX_MEASURED_RUNS}, got {measured_runs}"
+        ));
+    }
+    let timeout_ms = optional_u64(table.get("timeout_ms"), DEFAULT_TIMEOUT_MS)?;
+    Ok(Some(CompiledConfig {
+        build_command,
+        run_command,
+        warmup_runs,
+        measured_runs,
+        timeout_ms,
+    }))
+}
+
+fn string_array(value: Option<&toml::Value>) -> Option<Vec<String>> {
+    let values = value?.as_array()?;
+    values
+        .iter()
+        .map(|v| v.as_str().map(str::to_string))
+        .collect()
+}
+
+fn optional_u32(value: Option<&toml::Value>, default: u32) -> Result<u32, String> {
+    let Some(value) = value else {
+        return Ok(default);
+    };
+    let n = value
+        .as_integer()
+        .ok_or_else(|| "compiled run counts must be integers".to_string())?;
+    u32::try_from(n).map_err(|_| format!("compiled run count {n} is out of range"))
+}
+
+fn optional_u64(value: Option<&toml::Value>, default: u64) -> Result<u64, String> {
+    let Some(value) = value else {
+        return Ok(default);
+    };
+    let n = value
+        .as_integer()
+        .ok_or_else(|| "[compiled].timeout_ms must be an integer".to_string())?;
+    u64::try_from(n).map_err(|_| format!("[compiled].timeout_ms {n} is out of range"))
 }
 
 fn parse_allow_entries(raw_entries: &[toml::Value]) -> Vec<AllowEntry> {
@@ -260,6 +369,8 @@ pub fn merge_cli_allows(config: ToposConfig, allows: &[&str]) -> ToposConfig {
         priority: config.priority,
         preferences: config.preferences,
         root: config.root,
+        compiled: config.compiled,
+        compiled_error: config.compiled_error,
     }
 }
 
@@ -492,6 +603,74 @@ mod tests {
         );
         assert_eq!(config.effective_priority(), Priority::Secure);
 
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    fn write_cfg(label: &str, body: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "topos-cfg-{label}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join(CONFIG_FILENAME), body).unwrap();
+        dir
+    }
+
+    #[test]
+    fn compiled_block_loads_timeout_ms_as_u64() {
+        let dir = write_cfg(
+            "compiled-ok",
+            r#"[compiled]
+build_command = ["clang", "{flags}", "{profile}", "-o", "{output}", "src/a.c"]
+run_command = ["{output}", "512"]
+warmup_runs = 2
+measured_runs = 10
+timeout_ms = 60000
+"#,
+        );
+        let config = load_topos_config(&dir);
+        assert_eq!(config.compiled_error, None);
+        let compiled = config.compiled.as_ref().expect("compiled block");
+        assert_eq!(compiled.measured_runs, 10);
+        assert_eq!(compiled.timeout_ms, 60_000);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_malformed_compiled_block_is_an_error_not_silent_none() {
+        let dir = write_cfg(
+            "compiled-bad",
+            r#"[compiled]
+build_command = ["clang", "-o", "{output}", "a.c"]
+run_command = ["{output}"]
+"#,
+        );
+        let config = load_topos_config(&dir);
+        assert!(config.compiled.is_none());
+        let err = config.compiled_error.expect("compiled_error");
+        assert!(err.contains("{flags}"), "{err}");
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn measured_runs_below_six_is_a_hard_config_error() {
+        let dir = write_cfg(
+            "compiled-runs",
+            r#"[compiled]
+build_command = ["clang", "{flags}", "-o", "{output}", "a.c"]
+run_command = ["{output}"]
+measured_runs = 3
+"#,
+        );
+        let config = load_topos_config(&dir);
+        assert!(config.compiled.is_none());
+        let err = config.compiled_error.expect("compiled_error");
+        assert!(err.contains("6"), "{err}");
+        assert!(err.contains("3"), "{err}");
         fs::remove_dir_all(&dir).ok();
     }
 }

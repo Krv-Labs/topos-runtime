@@ -29,7 +29,10 @@ situational.
 | `topos_generate_depgraph` | Force a GitNexus rebuild/refresh. |
 | `topos_refactor` | Advisory hotspots. Never affects the medal. |
 | `topos_calculate_coverage` | Structural test coverage. Outside the lattice. |
-| `topos_get_doc` | Fetch one of the six embedded topics. |
+| `topos_get_doc` | Fetch one of the seven embedded topics. |
+| `topos_compiled_plan` | Probe clang and emit a compiled-optimization plan. Builds nothing. |
+| `topos_compiled_apply` | Measure an approved plan; promote only if SPEED and SIZE both pass. |
+| `topos_compiled_rollback` | Restore the pre-apply baseline binary. |
 
 ## Which server am I talking to?
 
@@ -253,12 +256,30 @@ symbols. Outside the lattice. Engineering reference:
 
 ## Repo OpenWiki (filesystem, not `topos_get_doc`)
 
-`topos_get_doc` / `topos://docs/*` only serve the six embedded topics
+`topos_get_doc` / `topos://docs/*` only serve the seven embedded topics
 (`agent-contract`, `lattice`, `metrics`, `preferences`, `priority`,
-`workflows`). Broader engineering docs live under `openwiki/` in the
+`workflows`, `compiled-agent-loop`). Broader engineering docs live under `openwiki/` in the
 repository (quickstart, architecture, domain, operations, integrations).
 Agents with workspace access should read those files directly; they are
 **not** MCP resources.
+
+## Compiled baseline benchmarks
+
+`topos_benchmark` is a separate signal from the lattice. It compiles the C
+workloads named in a benchmark manifest, runs each one, and reports measured
+wall-clock time, static instruction count, and binary size per workload.
+
+- `manifest_path` — benchmark manifest TOML; defaults to the repo manifest.
+- `compare_baseline` — path to a stored baseline JSON. When given, the response
+  carries `baseline_violations`: one message per workload whose wall-clock time
+  regressed beyond `tolerance_pct`.
+- `write_baseline` — write the current run to a baseline JSON for later runs to
+  compare against.
+
+It requires `clang` on `PATH` and errors plainly when the toolchain is missing —
+it never substitutes an estimate for a measurement. Its numbers are wall-clock
+observations on the machine that ran them, not a portable claim, and it does
+not feed the SIMPLE/COMPOSABLE/SECURE/NAVIGABLE verdict.
 
 ## What Topos does NOT measure
 
@@ -271,7 +292,9 @@ Agents with workspace access should read those files directly; they are
   *preservation of behavior*. Verify behavior with relevant project tests or
   equivalent checks when available; if unavailable or not run, report that
   explicitly.
-- **Runtime performance.** Orthogonal to all Topos metrics.
+- **Runtime performance.** Orthogonal to all *lattice* metrics — no structural
+  score predicts execution speed. Measured separately by `topos_benchmark`,
+  whose figures never feed the verdict.
 - **Beyond-syntactic security.** The SECURE generator catches obvious
   footguns (dangerous-API call sites, source→sink taint paths) via
   textual / structural pattern matching on the CPG.  It is not a full

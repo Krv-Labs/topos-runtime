@@ -138,6 +138,48 @@ jobs:
           | TOPOS_MCP_FILE_ROOT="$PWD" ./target/debug/topos-mcp \
           | grep -q '"topos_evaluate_code"'
 
+  benchmarks:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake libssl-dev pkg-config clang linux-tools-common
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache lbug prebuilt
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/lbug-prebuilt
+          key: lbug-prebuilt-0.17.1-static-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Setup lbug prebuilt
+        run: ./scripts/setup-lbug-prebuilt.sh
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          env-vars: CARGO CC CFLAGS CXX CMAKE RUST LBUG_LIBRARY_DIR
+
+      - name: Run benchmark integration test
+        run: TOPOS_BENCHMARK=1 cargo test -p topos-engine benchmark_workloads -- --nocapture
+
+      - name: Compare against stored baseline
+        run: cargo run -p topos -- benchmark --compare-baseline benchmarks/baselines/ubuntu-latest.json --tolerance-pct 150 --json
+
+      - name: Curvature microbench ceiling
+        run: |
+          cargo bench -p topos-engine --bench curvature -- --noplot 2>&1 | tee /tmp/curvature-bench.txt
+          MS=$(grep -Eo '[0-9]+\.[0-9]+ ms' /tmp/curvature-bench.txt | head -1 | tr -d ' ms')
+          python3 -c "import sys; ms=float(sys.argv[1]); assert ms < 500, f'curvature bench {ms}ms exceeds 500ms ceiling'" "$MS"
+
+
   composable:
     needs: gate
     if: needs.gate.outputs.run == 'true'
