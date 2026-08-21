@@ -3,6 +3,7 @@
 pub mod benchmark;
 mod classify;
 pub mod compare;
+pub mod compiled;
 mod composable;
 pub mod config;
 pub mod coverage;
